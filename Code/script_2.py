@@ -11,6 +11,8 @@ import CodingFunctions
 import Utils
 import Decoding
 
+ignored-modules = torch
+
 # Using this tutorial:
 # https://pytorch.org/tutorials/beginner/pytorch_with_examples.html
 

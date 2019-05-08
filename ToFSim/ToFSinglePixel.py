@@ -17,10 +17,12 @@ import Decoding
 #################### Set Function Parameters
 N = 10000
 #################### Get coding functions with total energy = 1
-# K = 4
-# (ModFs,DemodFs) = CodingFunctions.GetCosCos(N = N, K = K)
-(ModFs,DemodFs) = CodingFunctions.GetHamK3(N = N)
-# (ModFs,DemodFs) = CodingFunctions.GetHamK4(N = N)
+K = 3
+#(ModFs,DemodFs) = CodingFunctions.GetCosCos(N = N, K = K)
+#(ModFs,DemodFs) = CodingFunctions.GetSquare(N = N, K = K)
+(ModFs,DemodFs) = CodingFunctions.GetBinaryFunc(N = N, K = K)
+#(ModFs,DemodFs) = CodingFunctions.GetHamK3(N = N)
+#(ModFs,DemodFs) = CodingFunctions.GetHamK4(N = N)
 # (ModFs,DemodFs) = CodingFunctions.GetHamK5(N = N)
 # (ModFs,DemodFs) = CodingFunctions.GetMultiFreqCosK5(N = N)
 
@@ -51,7 +53,7 @@ meanBeta = 1e-4 # Avg fraction of photons reflected from a scene points back to 
 gamma = 1./(meanBeta*T*(pAveAmbientPerPixel+pAveSourcePerPixel)) # Camera gain. Ensures all values are between 0-1.
 
 #### Set list of depths/depth map
-depths = np.round(np.random.rand(5)*dMax).astype(int)
+depths = np.load('sample_pic.npy').astype(int) #np.round(np.random.rand(5)*dMax).astype(int)
 # depths = np.arange(0,10000)
 print("True Depths: {}".format(depths))
 
@@ -74,5 +76,6 @@ for i in range(depths.size):
     BVals[i,:] = Utils.GetClippedBSamples(nSamples=1,BMean=BVals[i,:],BVar=noiseVar[i,:])
 
 decodedDepths = Decoding.DecodeXCorr(BVals,NormCorrFs)
+np.save('sample_pic_decoded.npy', decodedDepths)
 
 print("Decoded depths: {},".format(decodedDepths))

@@ -203,3 +203,77 @@ def GetMultiFreqCosK5(N=1000, highFreqFactor=7.):
 
 	#### Smooth the High Freq terms
 	return (ModFs,DemodFs)
+
+
+
+def GetSquare(N=1000, K=3, tau=TauDefault, totalEnergy=TotalEnergyDefault):
+	"""GetCosCos: Get modulation and demodulation functions for sinusoid coding scheme. The shift
+	between each demod function is 2*pi/k where k can be [3,4,5...]
+	
+	Args:
+		N (int): N - Number of Samples
+		k (int): k - Number of coding function
+		freqFactor (float): Multiplicative factor to the fundamental frequency we want to use.
+
+	Returns:
+		np.array: modFs 
+		np.array: demodFs 
+	"""
+	#### Allocate modulation and demodulation vectors
+	modFs = np.zeros((N,K))
+	demodFs = np.zeros((N,K))
+	t = np.linspace(0, 2*np.pi, N)
+	dt = float(tau) / float(N)
+	#### Declare base square function
+	squareF = (np.cos(t)) > 0
+	#### Set each mod/demod pair to its base function and scale modulations
+	for i in range(0,K):
+		## No need to apply phase shift to modF
+		modFs[:,i] = squareF
+		## Scale  modF so that area matches the total energy
+		modFs[:,i] = Utils.ScaleAreaUnderCurve(modFs[:,i], dx=dt, desiredArea=totalEnergy)
+		## Apply phase shift to demodF
+		demodFs[:,i] = squareF
+	#### Apply phase shifts to demodF
+	shifts = np.arange(0, K)*(float(N)/float(K))
+	demodFs = Utils.ApplyKPhaseShifts(demodFs,shifts)
+	#### Return coding scheme
+	return (modFs, demodFs)
+
+
+def GetBinaryFunc(N=1000, K=3, tau=TauDefault, totalEnergy=TotalEnergyDefault):
+	"""GetCosCos: Get modulation and demodulation functions for sinusoid coding scheme. The shift
+	between each demod function is 2*pi/k where k can be [3,4,5...]
+	
+	Args:
+		N (int): N - Number of Samples
+		k (int): k - Number of coding function
+		freqFactor (float): Multiplicative factor to the fundamental frequency we want to use.
+
+	Returns:
+		np.array: modFs 
+		np.array: demodFs 
+	"""
+	#### Allocate modulation and demodulation vectors
+	modFs = np.zeros((N,K))
+	demodFs = np.zeros((N,K))
+	t = np.linspace(0, 2*np.pi, N)
+	dt = float(tau) / float(N)
+	#### Declare base square function
+	temp = np.concatenate((np.ones(N//4), np.zeros(N//4), np.ones(N//8), np.zeros(N//8), np.ones(N//16)))
+	BinF = np.concatenate((temp, np.zeros(N-np.size(temp))))
+	squareF = (np.cos(t)) > 0
+	#### Set each mod/demod pair to its base function and scale modulations
+	for i in range(0,K):
+		## No need to apply phase shift to modF
+		modFs[:,i] = BinF
+		## Scale  modF so that area matches the total energy
+		modFs[:,i] = Utils.ScaleAreaUnderCurve(modFs[:,i], dx=dt, desiredArea=totalEnergy)
+		## Apply phase shift to demodF
+		demodFs[:,i] = squareF
+	#### Apply phase shifts to demodF
+	shifts = np.arange(0, K)*(float(N)/float(K))
+	demodFs = Utils.ApplyKPhaseShifts(demodFs,shifts)
+	#### Return coding scheme
+	return (modFs, demodFs)
+

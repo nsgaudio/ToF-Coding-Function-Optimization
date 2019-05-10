@@ -10,7 +10,7 @@ from scipy import linalg
 from scipy import interpolate
 import torch
 
-ignored-modules = torch
+#ignored-modules = torch
 
 def ScaleAreaUnderCurve(x, dx=0., desiredArea=1.):
 	"""ScaleAreaUnderCurve: Scale the area under the curve x to some desired area.
@@ -25,10 +25,11 @@ def ScaleAreaUnderCurve(x, dx=0., desiredArea=1.):
 	"""
 	#### Validate Input
 	# assert(UtilsTesting.IsVector(x)),'Input Error - ScaleAreaUnderCurve: x should be a vector.'
+
 	#### Calculate some parameters
 	N = x.size
 	#### Set default value for dc
-	# if(dx == 0): dx = 1./float(N)
+	if(dx == 0): dx = 1./float(N)
 	#### Calculate new area
 	oldArea = torch.sum(x)*dx
 	y = x*desiredArea/oldArea
@@ -52,13 +53,14 @@ def ScaleMod(ModFs, tau=1., pAveSource=1.):
 	(N,K) = ModFs.shape
 	dt = tau / float(N)
 	eTotal = tau*pAveSource # Total Energy
-	ModFs_scaled = ModFs
+
+	ModFs_clone = ModFs.clone() # Clone ModFs, otherwise leaf variable error
+	ModFs_scaled = torch.ones([N,K], dtype=torch.float32) # Instantiate scaled ModFs
 	for i in range(0,K): 
-		ModFs_scaled[:,i] = ScaleAreaUnderCurve(x=ModFs[:,i], dx=dt, desiredArea=eTotal)
-		# ModFs[:,i] = ScaleAreaUnderCurve(x=ModFs[:,i], dx=dt, desiredArea=eTotal)
+		ModFs_scaled[:,i] = ScaleAreaUnderCurve(x=ModFs_clone[:,i], dx=dt, desiredArea=eTotal)
+		#ModFs[:,i] = ScaleAreaUnderCurve(x=ModFs_clone[:,i], dx=dt, desiredArea=eTotal)
 
 	return ModFs_scaled
-	# return ModFs
 
 
 def ApplyKPhaseShifts(x, shifts):
@@ -80,35 +82,44 @@ def ApplyKPhaseShifts(x, shifts):
 
 	return x
 
+def complex_conj_multiplication(t1, t2):
+	"""Multiplies the complex conjugate of tensor t1 with tensor t2
+
+	Args:
+		t1: Tensor 1 (complex conjugate)
+		t2: Tensor 2 (complex)
+
+	Return:
+		out: Tensor that contains the multiplication result
+	"""
+	real1, imag1 = t1.t()
+	real2, imag2 = t2.t()
+	imag1_conj = -1*imag1
+	return torch.stack([real1 * real2 - imag1_conj * imag2, real1 * imag2 + imag1_conj * real2], dim = -1)
+
 def GetCorrelationFunctions(ModFs, DemodFs, dt=None):
 	"""GetCorrelationFunctions: Calculate the circular correlation of all modF and demodF.
 	
 	Args:
-	    corrFAll (numpy.ndarray): Correlation functions. N x K matrix.
+		ModFs: Array of modulation functions. NxK matrix. NO DIMENSION CHECK performed.
+		DemodFs: Array of demodulation functions. NxK matrix. NO DIMENSION CHECK performed.
 	
 	Returns:
-	    np.array: N x K matrix. Each column is the correlation function for the respective pair.
+	    Tensor: NxK matrix. Each column is the correlation function for the respective pair.
 	"""
-	#### Reshape to ensure needed dimensions
-	if(ModFs.ndim == 1): ModFs = ModFs.reshape((ModFs.shape[0], 1))
-	if(DemodFs.ndim == 1): DemodFs = DemodFs.reshape((DemodFs.shape[0], 1))
-	## Assume that the number of elements is larger than the number of coding pairs, i.e. rows>cols
-	if(ModFs.shape[0] < ModFs.shape[1]): ModFs = ModFs.transpose()
-	if(DemodFs.shape[0] < DemodFs.shape[1]): DemodFs = DemodFs.transpose()
-	#### Verify Inputs
-	assert(ModFs.shape == DemodFs.shape), "Input Error - PlotCodingScheme: ModFs and \
-	DemodFs should be the same dimensions."
+
 	#### Declare some parameters
 	(N,K) = ModFs.shape
 	#### Get dt
 	if(dt == None): dt = 1./N
 	#### Allocate the correlation function matrix
-	CorrFs = np.zeros(ModFs.shape)
+	CorrFs = torch.zeros(ModFs.shape)
 	#### Get correlation functions
 	for i in range(0,K):
-		CorrFs[:,i] = np.fft.ifft(np.fft.fft(ModFs[:,i]).conj() * np.fft.fft(DemodFs[:,i])).real
+		temp = complex_conj_multiplication(torch.rfft(ModFs[:,i],1), torch.rfft(DemodFs[:,i],1))
+		CorrFs[:,i] = torch.irfft(temp,1)[0:N]
 	#### Scale by dt
-	CorrFs = CorrFs*dt	
+	CorrFs = CorrFs*dt
 	return CorrFs
 
 
@@ -135,11 +146,11 @@ def ComputeBrightnessVals(ModFs, DemodFs, depths=None, pAmbient=0, beta=1, T=1, 
 	"""
 	(N,K) = ModFs.shape
 	if(depths is None): depths = np.arange(0, N, 1)
-	depths = np.round(depths)
+	depths = torch.round(depths).type(torch.long)
 	## Calculate correlation functions (integral over 1 period of m(t-phi)*d(t)) for all phi
 	CorrFs = GetCorrelationFunctions(ModFs,DemodFs,dt=dt)
 	## Calculate the integral of the demodulation function over 1 period
-	kappas = np.sum(DemodFs,0)*dt
+	kappas = torch.sum(DemodFs,0)*dt
 	## Calculate brightness values
 	BVals = (gamma*beta)*(T/tau)*(CorrFs + pAmbient*kappas)
 	## Return only the brightness vals for the specified depths

@@ -9,9 +9,10 @@ import math
 # Local imports
 import CodingFunctions
 import Utils
+import UtilsPlot
 import Decoding
 
-ignored-modules = torch
+# ignored-modules = torch
 
 # Using this tutorial:
 # https://pytorch.org/tutorials/beginner/pytorch_with_examples.html
@@ -31,7 +32,7 @@ class Pixelwise(torch.nn.Module):
         super(Pixelwise, self).__init__()
 
         #################### Set Function Parameters
-        N = 10000
+        N = 100
         K = 3
         self.ModFs = torch.randn(N, K, device=device, dtype=dtype, requires_grad=True)
         self.DemodFs = torch.randn(N, K, device=device, dtype=dtype, requires_grad=True)
@@ -70,37 +71,42 @@ class Pixelwise(torch.nn.Module):
         """
         ### Resize gt_depths to 1D
         N, H, W = gt_depths.shape
-        gt_depths = torch.reshape(gt_depths, (N, -1))
+        #gt_depths = torch.reshape(gt_depths, (N, -1))
 
         #################### Simulation
         ## Set area under the curve of outgoing ModF to the totalEnergy
         ModFs_scaled = Utils.ScaleMod(self.ModFs, tau=self.tauMin, pAveSource=self.pAveSourcePerPixel)
-        # CorrFs = Utils.GetCorrelationFunctions(self.ModFs,self.DemodFs,dt=self.dt)
-        # ## Normalized correlation functions, zero mean, unit variance. We have to transpose so that broadcasting works.
-        # NormCorrFs = (CorrFs.transpose() - np.mean(CorrFs, axis=1)) / np.std(CorrFs, axis=1) 
-        # # Transpose it again so that it has dims NxK
-        # NormCorrFs = NormCorrFs.transpose()
 
-        # BVals = Utils.ComputeBrightnessVals(ModFs=self.ModFs, DemodFs=self.DemodFs, depths=self.depths, 
-        #                         pAmbient=self.pAveAmbientPerPixel, beta=self.meanBeta, T=self.T, tau=self.tau, dt=self.dt, gamma=self.gamma)
-        # #### Add noise
-        # # caluclate variance
-        # noiseVar = BVals*self.gamma + math.pow(self.readNoise*self.gamma, 2) 
-        # ##### Add noise to all brightness values
-        # for i in range(gt_depths.size):
-        #     BVals[i,:] = Utils.GetClippedBSamples(nSamples=1,BMean=BVals[i,:],BVar=noiseVar[i,:])
+        # Calculate correlation functions (NxK matrix) and normalize it (zero mean, unit variance)
+        CorrFs = Utils.GetCorrelationFunctions(self.ModFs,self.DemodFs,dt=self.dt)
+        NormCorrFs = (CorrFs - torch.mean(CorrFs,0)) / torch.std(CorrFs,0)
+
+        BVals = Utils.ComputeBrightnessVals(ModFs=self.ModFs, DemodFs=self.DemodFs, depths=gt_depths, \
+                pAmbient=self.pAveAmbientPerPixel, beta=self.meanBeta, T=self.T, tau=self.tau, dt=self.dt, gamma=self.gamma)
+        
+        #### Add noise
+        # Calculate variance
+        #noiseVar = BVals*self.gamma + math.pow(self.readNoise*self.gamma, 2) 
+        # Add noise to all brightness values
+        #for i in range(gt_depths.detach().numpy().size):
+        #    BVals[i,:] = Utils.GetClippedBSamples(nSamples=1,BMean=BVals[i,:],BVar=noiseVar[i,:])
 
         # decodedDepths = Decoding.DecodeXCorr(BVals,NormCorrFs)
 
         # print("Decoded depths: {},".format(decodedDepths))
 
-        # return depths_pred
-        return ModFs_scaled
+
+        # decodedDepths = ... reshape
+        #return ModFs_scaled
+        return CorrFs
+        #return NormCorrFs
+        #return BVals
 
 # Create random Tensors to hold inputs and outputs
 N = 1
-H = 1
-W = 1
+H = 2
+W = 2
+#gt_depths = 10*torch.ones(N, H, W, device=device, dtype=dtype, requires_grad=True)
 gt_depths = torch.randn(N, H, W, device=device, dtype=dtype, requires_grad=True)
 
 gt_depths_init = gt_depths.clone()
@@ -114,8 +120,23 @@ model = Pixelwise()
 # nn.Linear modules which are members of the model.
 criterion = torch.nn.MSELoss(reduction='sum')
 # optimizer = torch.optim.SGD([x], lr=1e-4)
-optimizer = optim.Adam([model.ModFs, model.DemodFs], lr = 0.0001)
+optimizer = optim.Adam([model.ModFs, model.DemodFs], lr = 1e2)
 # optimizer = optim.Adam([x], lr = 0.0001, momentum=0.9)
+
+
+# Goal correlation function (build a triangular function)
+tr = torch.linspace(0,1,steps=25,dtype=torch.float)
+tr = tr.reshape(-1,1)
+tr = torch.cat((tr,tr,tr),1)
+tf = torch.linspace(1,0,steps=25,dtype=torch.float)
+tf = tf.reshape(-1,1)
+tf = torch.cat((tf,tf,tf),1)
+goal = torch.tensor(torch.cat((tr,tf,tf-1,tr-1),0), device=device, requires_grad=True)
+print(torch.mean(goal,0))
+print(torch.std(goal,0))
+print(goal)
+
+
 
 with torch.autograd.detect_anomaly():
     for t in range(500):
@@ -123,17 +144,21 @@ with torch.autograd.detect_anomaly():
         depths_pred = model(gt_depths)
 
         # Compute and print loss
+        #loss = criterion(depths_pred, 1000*torch.ones([1,2,2,3], dtype=torch.float, device=device, requires_grad=True))
+        loss = criterion(depths_pred, goal)
 
-        see = torch.ones([1, 1, 1], dtype=torch.float, device=device, requires_grad=True)
-        print("see type:", see.type())
-        loss = criterion(depths_pred, torch.ones([1, 1, 1], dtype=torch.float, device=device, requires_grad=True))
-
-        # print(t, loss.item())
+        if (t%10 == 0):
+            print("Iteration %d, Loss value: %f" %(t, loss.item()))
 
         # Zero gradients, perform a backward pass, and update the weights.
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
+
+    print(depths_pred)
+    ModFs_scaled = Utils.ScaleMod(model.ModFs, tau=model.tauMin, pAveSource=model.pAveSourcePerPixel)
+    print(ModFs_scaled)
+    UtilsPlot.PlotCodingScheme(model.ModFs,model.DemodFs)
 
 
 

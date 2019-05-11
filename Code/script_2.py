@@ -78,7 +78,7 @@ class Pixelwise(torch.nn.Module):
         ModFs_scaled = Utils.ScaleMod(self.ModFs, tau=self.tauMin, pAveSource=self.pAveSourcePerPixel)
 
         # Calculate correlation functions (NxK matrix) and normalize it (zero mean, unit variance)
-        CorrFs = Utils.GetCorrelationFunctions(self.ModFs,self.DemodFs,dt=self.dt)
+        CorrFs = Utils.GetCorrelationFunctions(ModFs_scaled,self.DemodFs,dt=self.dt)
         NormCorrFs = (CorrFs - torch.mean(CorrFs,0)) / torch.std(CorrFs,0)
 
         BVals = Utils.ComputeBrightnessVals(ModFs=self.ModFs, DemodFs=self.DemodFs, depths=gt_depths, \
@@ -120,7 +120,7 @@ model = Pixelwise()
 # nn.Linear modules which are members of the model.
 criterion = torch.nn.MSELoss(reduction='sum')
 # optimizer = torch.optim.SGD([x], lr=1e-4)
-optimizer = optim.Adam([model.ModFs, model.DemodFs], lr = 1e2)
+optimizer = optim.Adam([model.ModFs, model.DemodFs], lr = 1e1)
 # optimizer = optim.Adam([x], lr = 0.0001, momentum=0.9)
 
 
@@ -158,7 +158,7 @@ with torch.autograd.detect_anomaly():
     print(depths_pred)
     # ModFs_scaled = Utils.ScaleMod(model.ModFs, tau=model.tauMin, pAveSource=model.pAveSourcePerPixel)
     # print(ModFs_scaled)
-    # UtilsPlot.PlotCodingScheme(model.ModFs,model.DemodFs)
+    UtilsPlot.PlotCodingScheme(model.ModFs,model.DemodFs)
 
 
 

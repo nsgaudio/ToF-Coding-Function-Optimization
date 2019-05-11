@@ -126,7 +126,5 @@ def PlotCodingScheme(ModFs, DemodFs):
 	# axarr[2].set_ylim([0,1.2*np.max(CorrFs)])	
 
 	plt.savefig('test.png')
-
 	return (fig, axarr)
-
 

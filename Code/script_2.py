@@ -91,14 +91,15 @@ class Pixelwise(torch.nn.Module):
         #for i in range(gt_depths.detach().numpy().size):
         #    BVals[i,:] = Utils.GetClippedBSamples(nSamples=1,BMean=BVals[i,:],BVar=noiseVar[i,:])
 
-        # decodedDepths = Decoding.DecodeXCorr(BVals,NormCorrFs)
+        decodedDepths = Decoding.DecodeXCorr(BVals,NormCorrFs)
 
         # print("Decoded depths: {},".format(decodedDepths))
 
+        return decodedDepths
 
         # decodedDepths = ... reshape
         #return ModFs_scaled
-        return CorrFs
+        # return CorrFs
         #return NormCorrFs
         #return BVals
 
@@ -125,16 +126,16 @@ optimizer = optim.Adam([model.ModFs, model.DemodFs], lr = 1e2)
 
 
 # Goal correlation function (build a triangular function)
-tr = torch.linspace(0,1,steps=25,dtype=torch.float)
-tr = tr.reshape(-1,1)
-tr = torch.cat((tr,tr,tr),1)
-tf = torch.linspace(1,0,steps=25,dtype=torch.float)
-tf = tf.reshape(-1,1)
-tf = torch.cat((tf,tf,tf),1)
-goal = torch.tensor(torch.cat((tr,tf,tf-1,tr-1),0), device=device, requires_grad=True)
-print(torch.mean(goal,0))
-print(torch.std(goal,0))
-print(goal)
+# tr = torch.linspace(0,1,steps=25,dtype=torch.float)
+# tr = tr.reshape(-1,1)
+# tr = torch.cat((tr,tr,tr),1)
+# tf = torch.linspace(1,0,steps=25,dtype=torch.float)
+# tf = tf.reshape(-1,1)
+# tf = torch.cat((tf,tf,tf),1)
+# goal = torch.tensor(torch.cat((tr,tf,tf-1,tr-1),0), device=device, requires_grad=True)
+# print(torch.mean(goal,0))
+# print(torch.std(goal,0))
+# print(goal)
 
 
 
@@ -145,7 +146,8 @@ with torch.autograd.detect_anomaly():
 
         # Compute and print loss
         #loss = criterion(depths_pred, 1000*torch.ones([1,2,2,3], dtype=torch.float, device=device, requires_grad=True))
-        loss = criterion(depths_pred, goal)
+        # loss = criterion(depths_pred, goal)
+        loss = criterion(depths_pred, gt_depths)
 
         if (t%10 == 0):
             print("Iteration %d, Loss value: %f" %(t, loss.item()))
@@ -158,7 +160,7 @@ with torch.autograd.detect_anomaly():
     print(depths_pred)
     ModFs_scaled = Utils.ScaleMod(model.ModFs, tau=model.tauMin, pAveSource=model.pAveSourcePerPixel)
     print(ModFs_scaled)
-    # UtilsPlot.PlotCodingScheme(model.ModFs,model.DemodFs)
+    UtilsPlot.PlotCodingScheme(model.ModFs,model.DemodFs)
 
 
 

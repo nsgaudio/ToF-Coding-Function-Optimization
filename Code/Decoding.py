@@ -20,19 +20,21 @@ def DecodeXCorr(BMeasurements, NormCorrFs):
 	Returns:
 	    np.array: decodedDepths 
 	"""
-
-	B, K = BMeasurements.shape
+	C, H, W, K = BMeasurements.shape
+	BMeasurements_reshaped = torch.reshape(BMeasurements, (-1, K))
+	B, K = BMeasurements_reshaped.shape
 	N = NormCorrFs.shape[0]
 	## Normalize Brightness Measurements functions
 	# NormBMeasurements = (BMeasurements.transpose() - np.mean(BMeasurements, axis=1)) / np.std(BMeasurements, axis=1)
-	NormBMeasurements = (BMeasurements.t() - torch.mean(BMeasurements, axis=1)) / torch.std(BMeasurements, axis=1)
-	NormBMeasurements_clone = NormBMeasurements.clone()
+	NormBMeasurements_reshaped = (BMeasurements_reshaped.t() - torch.mean(BMeasurements_reshaped, dim=1)) / torch.std(BMeasurements_reshaped, dim=1)
 	## Calculate the cross correlation for every measurement and the maximum one will be the depth
 	# decodedDepths = torch.zeros((NormBMeasurements.shape[1],), dtype=torch.float32)
-	decodedDepths = torch.zeros((B,), dtype=torch.float32)
-	for i in range(B):
-		# decodedDepths[i] = np.argmax(np.dot(NormCorrFs, NormBMeasurements[:,i]), axis=0)
-		decodedDepths[i] = torch.Softmax(torch.mm(NormCorrFs, NormBMeasurements_clone[:,i]), axis=0)
+	decodedDepths_reshaped = torch.zeros((B,), dtype=torch.float32)
 	enum = torch.linspace(0, N - 1, steps=N)
-	result = torch.dot(decodedDepths, enum)
-	return result
+	for i in range(B):
+		see = torch.mv(NormCorrFs, NormBMeasurements_reshaped[:,i])
+		SM = torch.nn.Softmax()
+		temp = SM(see)
+		decodedDepths_reshaped[i] = torch.dot(temp, enum)
+	decodedDepths = torch.reshape(decodedDepths_reshaped, (C, H, W))
+	return decodedDepths

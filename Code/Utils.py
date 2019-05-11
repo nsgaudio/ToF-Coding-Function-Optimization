@@ -155,7 +155,6 @@ def ComputeBrightnessVals(ModFs, DemodFs, depths=None, pAmbient=0, beta=1, T=1, 
 	BVals = (gamma*beta)*(T/tau)*(CorrFs + pAmbient*kappas)
 	## Return only the brightness vals for the specified depths
 	BVals = BVals[depths,:]
-
 	return (BVals)
 
 def GetClippedBSamples(nSamples, BMean, BVar):

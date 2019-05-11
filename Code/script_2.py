@@ -156,9 +156,9 @@ with torch.autograd.detect_anomaly():
         optimizer.step()
 
     print(depths_pred)
-    # ModFs_scaled = Utils.ScaleMod(model.ModFs, tau=model.tauMin, pAveSource=model.pAveSourcePerPixel)
-    # print(ModFs_scaled)
-    # UtilsPlot.PlotCodingScheme(model.ModFs,model.DemodFs)
+    ModFs_scaled = Utils.ScaleMod(model.ModFs, tau=model.tauMin, pAveSource=model.pAveSourcePerPixel)
+    print(ModFs_scaled)
+    UtilsPlot.PlotCodingScheme(model.ModFs,model.DemodFs)
 
 
 

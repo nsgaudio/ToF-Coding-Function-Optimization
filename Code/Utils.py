@@ -55,7 +55,7 @@ def ScaleMod(ModFs, tau=1., pAveSource=1.):
 	eTotal = tau*pAveSource # Total Energy
 
 	ModFs_clone = ModFs.clone() # Clone ModFs, otherwise leaf variable error
-	ModFs_scaled = torch.ones([N,K], dtype=torch.float32) # Instantiate scaled ModFs
+	ModFs_scaled = torch.zeros([N,K], dtype=torch.float32) # Instantiate scaled ModFs
 	for i in range(0,K): 
 		ModFs_scaled[:,i] = ScaleAreaUnderCurve(x=ModFs_clone[:,i], dx=dt, desiredArea=eTotal)
 		#ModFs[:,i] = ScaleAreaUnderCurve(x=ModFs_clone[:,i], dx=dt, desiredArea=eTotal)

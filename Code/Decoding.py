@@ -9,6 +9,10 @@ import torch
 
 #### Local imports
 
+
+
+
+
 def DecodeXCorr(BMeasurements, NormCorrFs):
 	"""DecodeXCorr: Generic decoding algorithm that performs a 1D search on the normalized 
 	correlation functions.
@@ -29,7 +33,7 @@ def DecodeXCorr(BMeasurements, NormCorrFs):
 	## Calculate the cross correlation for every measurement and the maximum one will be the depth
 	decodedDepths_reshaped = torch.zeros((B,), dtype=torch.float32)
 	enumeration = torch.linspace(0, N - 1, steps=N)
-	beta = 10
+	beta = 1
 	for i in range(B):
 		Corr_B = torch.mv(NormCorrFs, NormBMeasurements_reshaped[:,i])
 		SM = torch.nn.Softmax()

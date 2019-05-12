@@ -16,8 +16,8 @@ import Decoding
 
 # Using this tutorial:
 # https://pytorch.org/tutorials/beginner/pytorch_with_examples.html
+# print("torch version:", torch.__version__)
 
-print("torch version:", torch.__version__)
 
 dtype = torch.float
 device = torch.device("cpu")

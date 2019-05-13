@@ -30,7 +30,7 @@ def DecodeXCorr(BMeasurements, NormCorrFs):
 	for i in range(NormBMeasurements.shape[1]):
 		#decodedDepths[i] = np.argmax(np.dot(NormCorrFs, NormBMeasurements[:,i]), axis=0)
 		Corr_B = np.dot(NormCorrFs, NormBMeasurements[:,i])
-		softmax = scipy.special.softmax(100*Corr_B,axis=0)
+		softmax = scipy.special.softmax(10*Corr_B,axis=0)
 		decodedDepths[i] = np.dot(softmax,np.arange(N))
 
 		#fig, ax = plt.subplots()

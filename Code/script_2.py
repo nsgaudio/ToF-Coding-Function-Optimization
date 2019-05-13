@@ -34,8 +34,11 @@ class Pixelwise(torch.nn.Module):
         #################### Set Function Parameters
         N = 10000
         K = 3
-        self.ModFs = torch.randn(N, K, device=device, dtype=dtype, requires_grad=True)
-        self.DemodFs = torch.randn(N, K, device=device, dtype=dtype, requires_grad=True)
+        (ModFs_np,DemodFs_np) = CodingFunctions.GetHamK3(N = N)
+        self.ModFs = torch.tensor(ModFs_np, device=device, dtype=dtype, requires_grad=True)
+        self.DemodFs = torch.tensor(DemodFs_np, device=device, dtype=dtype, requires_grad=True)
+        #self.ModFs = torch.randn(N, K, device=device, dtype=dtype, requires_grad=True)
+        #self.DemodFs = torch.randn(N, K, device=device, dtype=dtype, requires_grad=True)
 
         #################### Coding Function and Scene Parameters
         sourceExponent = 9
@@ -93,7 +96,7 @@ class Pixelwise(torch.nn.Module):
 
         decodedDepths = Decoding.DecodeXCorr(BVals,NormCorrFs)
 
-        # print("Decoded depths: {},".format(decodedDepths))
+        #print("Decoded depths: {},".format(decodedDepths))
 
         return decodedDepths
 
@@ -109,6 +112,7 @@ H = 2
 W = 2
 #gt_depths = 10*torch.ones(N, H, W, device=device, dtype=dtype, requires_grad=True)
 gt_depths = 9000*torch.rand(N, H, W, device=device, dtype=dtype, requires_grad=True)
+print('gt_depths:',gt_depths)
 
 gt_depths_init = gt_depths.clone()
 # y = torch.randn(1, 1, device=device, dtype=dtype, requires_grad=True)
@@ -119,9 +123,9 @@ model = Pixelwise()
 # Construct our loss function and an Optimizer. The call to model.parameters()
 # in the SGD constructor will contain the learnable parameters of the two
 # nn.Linear modules which are members of the model.
-criterion = torch.nn.MSELoss(reduction='sum')
+criterion = torch.nn.MSELoss(reduction='mean')
 # optimizer = torch.optim.SGD([x], lr=1e-4)
-optimizer = optim.Adam([model.ModFs, model.DemodFs], lr = 1e1)
+optimizer = optim.Adam([model.ModFs, model.DemodFs], lr = 1e-6)
 # optimizer = optim.Adam([x], lr = 0.0001, momentum=0.9)
 
 
@@ -160,34 +164,14 @@ with torch.autograd.detect_anomaly():
     print(depths_pred)
     ModFs_scaled = Utils.ScaleMod(model.ModFs, tau=model.tauMin, pAveSource=model.pAveSourcePerPixel)
     print(ModFs_scaled)
-    UtilsPlot.PlotCodingScheme(model.ModFs,model.DemodFs)
 
+    N = 10000
+    K = 3
+    (ModFs_np,DemodFs_np) = CodingFunctions.GetHamK3(N = N)
+    ModFs_start = torch.tensor(ModFs_np, device=device, dtype=dtype)
+    DemodFs_start = torch.tensor(DemodFs_np, device=device, dtype=dtype)
+    diff = model.ModFs - ModFs_start
+    print(diff)
+    UtilsPlot.PlotCodingScheme(model.ModFs - ModFs_start,model.DemodFs-DemodFs_start)
+    
 
-
-
-
-# for t in range(500):
-#     # Forward pass: Compute predicted y by passing x to the model
-#     depths_pred = model(gt_depths)
-
-#     # Compute and print loss
-
-#     see = torch.ones([1, 1, 1], dtype=torch.float, device=device, requires_grad=True)
-#     print("see type:", see.type())
-#     loss = criterion(depths_pred, torch.ones([1, 1, 1], dtype=torch.float, device=device, requires_grad=True))
-
-#     # print(t, loss.item())
-
-#     # Zero gradients, perform a backward pass, and update the weights.
-#     optimizer.zero_grad()
-#     loss.backward()
-#     with autograd.detect_anomaly():
-#         inp = torch.rand(10, 10, requires_grad=True)
-#         out = run_fn(inp)
-#         out.backward()
-#     optimizer.step()
-
-
-# print("Initial x:", x_init)
-# print("Final x:", x_pred)
-# print("Difference:", x_pred - x_init)

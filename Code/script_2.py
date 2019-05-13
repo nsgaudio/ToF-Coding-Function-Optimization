@@ -1,5 +1,7 @@
 import numpy as np
 import torch
+import matplotlib
+matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 import torch.nn as nn            # containing various building blocks for your neural networks
 import torch.optim as optim      # implementing various optimization algorithms
@@ -12,7 +14,7 @@ import Utils
 import UtilsPlot
 import Decoding
 
-# ignored-modules = torch
+generated-members=torch.*
 
 # Using this tutorial:
 # https://pytorch.org/tutorials/beginner/pytorch_with_examples.html

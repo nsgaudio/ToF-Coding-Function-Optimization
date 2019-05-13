@@ -10,6 +10,7 @@ from scipy import linalg
 from scipy import interpolate
 import torch
 
+generated-members=torch.*
 
 def ScaleAreaUnderCurve(x, dx=0., desiredArea=1.):
 	"""ScaleAreaUnderCurve: Scale the area under the curve x to some desired area.

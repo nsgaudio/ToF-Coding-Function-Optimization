@@ -14,8 +14,6 @@ import Utils
 import UtilsPlot
 import Decoding
 
-#generated-members=torch.*
-
 # Using this tutorial:
 # https://pytorch.org/tutorials/beginner/pytorch_with_examples.html
 # print("torch version:", torch.__version__)

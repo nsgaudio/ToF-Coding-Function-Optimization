@@ -23,9 +23,6 @@ matplotlib.use('TkAgg')
 #### Local imports
 import Utils
 
-
-#generated-members=torch.*
-
 #### Default matplotlib preferences
 plt.style.use('ggplot')
 colors = plt.rcParams['axes.prop_cycle'].by_key()['color']

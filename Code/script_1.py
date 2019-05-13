@@ -7,8 +7,6 @@ import torch.nn as nn            # containing various building blocks for your n
 import torch.optim as optim      # implementing various optimization algorithms
 import torch.nn.functional as F  # a lower level (compared to torch.nn) interface
 
-generated-members=torch.*
-
 # Using this tutorial:
 # https://pytorch.org/tutorials/beginner/pytorch_with_examples.html
 

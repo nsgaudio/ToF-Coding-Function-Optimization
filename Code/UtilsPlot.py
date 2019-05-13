@@ -24,7 +24,7 @@ matplotlib.use('TkAgg')
 import Utils
 
 
-generated-members=torch.*
+#generated-members=torch.*
 
 #### Default matplotlib preferences
 plt.style.use('ggplot')

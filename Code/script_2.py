@@ -105,8 +105,8 @@ class Pixelwise(torch.nn.Module):
 
 # Create random Tensors to hold inputs and outputs
 N = 1
-H = 10
-W = 10
+H = 2
+W = 2
 #gt_depths = 10*torch.ones(N, H, W, device=device, dtype=dtype, requires_grad=True)
 gt_depths = 9000*torch.rand(N, H, W, device=device, dtype=dtype, requires_grad=True)
 
@@ -121,7 +121,7 @@ model = Pixelwise()
 # nn.Linear modules which are members of the model.
 criterion = torch.nn.MSELoss(reduction='sum')
 # optimizer = torch.optim.SGD([x], lr=1e-4)
-optimizer = optim.Adam([model.ModFs, model.DemodFs], lr = 1e0)
+optimizer = optim.Adam([model.ModFs, model.DemodFs], lr = 1e1)
 # optimizer = optim.Adam([x], lr = 0.0001, momentum=0.9)
 
 

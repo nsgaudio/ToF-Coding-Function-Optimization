@@ -8,15 +8,23 @@ Attributes:
 
 #### Library imports
 import numpy as np
+# import matplotlib
+# matplotlib.use('TkAgg')
 import matplotlib as mpl
+mpl.use('TkAgg')
 import matplotlib.pyplot as plt
 import scipy.io as sio
 import torch
 # from IPython.core import debugger
 # breakpoint = debugger.set_trace
+import matplotlib
+matplotlib.use('TkAgg')
 
 #### Local imports
 import Utils
+
+
+generated-members=torch.*
 
 #### Default matplotlib preferences
 plt.style.use('ggplot')

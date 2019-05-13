@@ -15,6 +15,8 @@ import CodingFunctions
 import Utils
 import Decoding
 
+generated-members=torch.*
+
 #################### Set Function Parameters
 N = 10000
 #################### Get coding functions with total energy = 1

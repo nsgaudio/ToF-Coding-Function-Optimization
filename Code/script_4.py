@@ -82,10 +82,11 @@ class Pixelwise(torch.nn.Module):
         _, H, W = gt_depths.shape
         #### Resize gt_depths to 1D
         #gt_depths = torch.reshape(gt_depths, (N, -1))
-        DemodFs = torch.zeros(self.N, self.K, device=device, dtype=dtype, requires_grad=True)
+
+        DemodFs = torch.zeros(self.N, self.K, device=device, dtype=dtype, requires_grad=False)
         p = torch.linspace(0, self.N-1, self.N)
-        for k in range(1, self.K):
-            for ord in range(1, self.order):
+        for k in range(0, self.K):
+            for ord in range(0, self.order):
                 DemodFs[:, k] += self.alpha[k, ord] * torch.sin(self.omega[k, ord] * p + self.phi[k, ord])
 
         #################### Simulation
@@ -117,8 +118,8 @@ H = 10
 W = 10
 #gt_depths = 10*torch.ones(N, H, W, device=device, dtype=dtype, requires_grad=True)
 gt_depths = 9000*torch.rand(N, H, W, device=device, dtype=dtype, requires_grad=True)
-print("Ground Truth Depths:", gt_depths)
-print("Ground Truth Depths Shape:", gt_depths.shape)
+# print("Ground Truth Depths:", gt_depths)
+# print("Ground Truth Depths Shape:", gt_depths.shape)
 
 gt_depths_init = gt_depths.clone()
 # y = torch.randn(1, 1, device=device, dtype=dtype, requires_grad=True)
@@ -138,7 +139,7 @@ with torch.autograd.detect_anomaly():
     for t in range(1, 100 + 1):
         # Forward pass: Compute predicted y by passing x to the model
         depths_pred = model(gt_depths)
-
+        # print("Depth prediction:", depths_pred)
         # Compute and print loss
         #loss = criterion(depths_pred, 1000*torch.ones([1,2,2,3], dtype=torch.float, device=device, requires_grad=True))
         # loss = criterion(depths_pred, goal)

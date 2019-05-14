@@ -132,7 +132,7 @@ def NormalizeBrightnessVals(BVals):
 	return NormBVals
 
 
-def ComputeBrightnessVals(ModFs, DemodFs, depths=None, pAmbient=0, beta=1, T=1, tau=1, dt=1, gamma=1):
+def ComputeBrightnessVals(ModFs, DemodFs, CorrFs, depths=None, pAmbient=0, beta=1, T=1, tau=1, dt=1, gamma=1):
 	"""ComputeBrightnessVals: Computes the brightness values for each possible depth.
 	
 	Args:
@@ -149,7 +149,7 @@ def ComputeBrightnessVals(ModFs, DemodFs, depths=None, pAmbient=0, beta=1, T=1, 
 	if(depths is None): depths = np.arange(0, N, 1)
 	depths = torch.round(depths).type(torch.long)
 	## Calculate correlation functions (integral over 1 period of m(t-phi)*d(t)) for all phi
-	CorrFs = GetCorrelationFunctions(ModFs,DemodFs,dt=dt)
+	#CorrFs = GetCorrelationFunctions(ModFs,DemodFs,dt=dt)
 	## Calculate the integral of the demodulation function over 1 period
 	kappas = torch.sum(DemodFs,0)*dt
 	## Calculate brightness values

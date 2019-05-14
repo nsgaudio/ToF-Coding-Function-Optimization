@@ -40,7 +40,7 @@ def GetCosCos(N=1000, K=3, tau=TauDefault, totalEnergy=TotalEnergyDefault):
 		## No need to apply phase shift to modF
 		modFs[:,i] = cosF
 		## Scale  modF so that area matches the total energy
-		modFs[:,i] = Utils.ScaleAreaUnderCurve(modFs[:,i], dx=dt, desiredArea=totalEnergy)
+		#modFs[:,i] = Utils.ScaleAreaUnderCurve(modFs[:,i], dx=dt, desiredArea=totalEnergy)
 		## Apply phase shift to demodF
 		demodFs[:,i] = cosF
 	#### Apply phase shifts to demodF

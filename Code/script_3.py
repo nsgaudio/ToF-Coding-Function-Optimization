@@ -14,10 +14,6 @@ import Utils
 import UtilsPlot
 import Decoding
 
-# Using this tutorial:
-# https://pytorch.org/tutorials/beginner/pytorch_with_examples.html
-# print("torch version:", torch.__version__)
-
 
 dtype = torch.float
 device = torch.device("cpu")
@@ -38,28 +34,18 @@ class Pixelwise(torch.nn.Module):
         #self.ModFs = torch.tensor(ModFs_np, device=device, dtype=dtype, requires_grad=True)
         #self.DemodFs = torch.tensor(DemodFs_np, device=device, dtype=dtype, requires_grad=True)
 
-        N = 10000
-        K = 3
-        (ModFs_np,DemodFs_np) = CodingFunctions.GetCosCos(N = N, K=K)
-        self.ModFs = torch.tensor(ModFs_np, device=device, dtype=dtype)
-        self.DemodFs_phase = torch.rand(1,K, dtype=dtype, device=device, requires_grad=True)
-        n_lin = torch.linspace(0, 1, steps=10000)
-        t1 = 0.5+0.5*torch.sin(2*math.pi*(n_lin - self.DemodFs_phase[0,0]))
-        t2 = 0.5+0.5*torch.sin(2*math.pi*(n_lin - self.DemodFs_phase[0,1]))
-        t3 = 0.5+0.5*torch.sin(2*math.pi*(n_lin - self.DemodFs_phase[0,2]))
-        print(t1.shape)
-        self.DemodFs = torch.cat((torch.reshape(t1,[-1,1]),torch.reshape(t2,[-1,1]),torch.reshape(t3,[-1,1])),dim=1)
-        print(self.DemodFs.shape)
-        #e1_K1 = self.DemodFs_edges[0,0].long() if self.DemodFs_edges[0,0] < self.DemodFs_edges[1,0] else self.DemodFs_edges[1,0].long()
-        #e2_K1 = self.DemodFs_edges[1,0].long() if self.DemodFs_edges[0,0] < self.DemodFs_edges[1,0] else self.DemodFs_edges[0,0].long()
-        #e1_K2 = self.DemodFs_edges[0,1].long() if self.DemodFs_edges[0,1] < self.DemodFs_edges[1,1] else self.DemodFs_edges[1,1].long()
-        #e2_K2 = self.DemodFs_edges[1,1].long() if self.DemodFs_edges[0,1] < self.DemodFs_edges[1,1] else self.DemodFs_edges[0,1].long()
-        #e1_K3 = self.DemodFs_edges[0,2].long() if self.DemodFs_edges[0,2] < self.DemodFs_edges[1,2] else self.DemodFs_edges[1,2].long()
-        #e2_K3 = self.DemodFs_edges[1,2].long() if self.DemodFs_edges[0,2] < self.DemodFs_edges[1,2] else self.DemodFs_edges[0,2].long()
-        #t1 = torch.cat((torch.zeros((e1_K1,1)),torch.ones((e2_K1-e1_K1,1)),torch.zeros((10000-e2_K1,1))),dim=0)
-        #t2 = torch.cat((torch.zeros((e1_K2,1)),torch.ones((e2_K2-e1_K2,1)),torch.zeros((10000-e2_K2,1))),dim=0)
-        #t3 = torch.cat((torch.zeros((e1_K3,1)),torch.ones((e2_K3-e1_K3,1)),torch.zeros((10000-e2_K3,1))),dim=0)
-        #self.DemodFs = torch.cat((t1,t2,t3),dim=1)
+        #N = 10000
+        #K = 3
+        #(ModFs_np,DemodFs_np) = CodingFunctions.GetCosCos(N = N, K=K)
+        #self.ModFs = torch.tensor(ModFs_np, device=device, dtype=dtype)
+        #self.DemodFs_phase = torch.rand(1,K, dtype=dtype, device=device, requires_grad=True)
+        #n_lin = torch.linspace(0, 1, steps=10000)
+        #t1 = 0.5+0.5*torch.sin(2*math.pi*(n_lin - self.DemodFs_phase[0,0]))
+        #t2 = 0.5+0.5*torch.sin(2*math.pi*(n_lin - self.DemodFs_phase[0,1]))
+        #t3 = 0.5+0.5*torch.sin(2*math.pi*(n_lin - self.DemodFs_phase[0,2]))
+        #print(t1.shape)
+        #self.DemodFs = torch.cat((torch.reshape(t1,[-1,1]),torch.reshape(t2,[-1,1]),torch.reshape(t3,[-1,1])),dim=1)
+        #print(self.DemodFs.shape)
 
         #N = 10000
         #K = 3
@@ -77,12 +63,25 @@ class Pixelwise(torch.nn.Module):
         #t3 = torch.cat((torch.zeros((e1_K3,1)),torch.ones((e2_K3-e1_K3,1)),torch.zeros((10000-e2_K3,1))),dim=0)
         #self.DemodFs = torch.cat((t1,t2,t3),dim=1)
 
-        #self.ModFs = torch.randn(N, K, device=device, dtype=dtype, requires_grad=True)
-        #self.DemodFs = torch.randn(N, K, device=device, dtype=dtype, requires_grad=True)
+        #N = 10000
+        #K = 3
+        #self.ModFs = torch.rand(N, 1, device=device, dtype=dtype, requires_grad=True)
+        #self.ModFs_multi = torch.cat((self.ModFs.clone(),self.ModFs.clone(),self.ModFs.clone()),1)
+        #self.DemodFs = torch.rand(N, K, device=device, dtype=dtype, requires_grad=True)
+
 
         #################### Coding Function and Scene Parameters
         sourceExponent = 9
         ambientExponent = 6
+
+        #### Coding
+        N = 10000
+        K = 3
+        self.ModFs = torch.cat((2*torch.ones((int(N/2), 3), device=device, dtype=dtype), torch.zeros((int(N/2),3), device=device, dtype=dtype)),0)
+        temp = 1/np.power(10, 0) * torch.rand(N, K, device=device, dtype=dtype, requires_grad=True) # scaled random initialization
+        #temp = torch.zeros((N, K), device=device, dtype=dtype)
+        self.DemodFs = temp.clone().detach().requires_grad_(True)
+
         #### Global parameters
         speedOfLight = 299792458. * 1000. # mm / sec 
         #### Sensor parameters
@@ -106,25 +105,24 @@ class Pixelwise(torch.nn.Module):
         ## The following bound is found by assuming the max brightness value is obtained when demod is 1. 
         self.gamma = 1./(self.meanBeta*self.T*(self.pAveAmbientPerPixel+self.pAveSourcePerPixel)) # Camera gain. Ensures all values are between 0-1.
 
+
     def forward(self, gt_depths):
         """
         In the forward function we accept a Tensor of input data and we must return
         a Tensor of output data. We can use Modules defined in the constructor as
         well as arbitrary operators on Tensors.
         """
-        ### Resize gt_depths to 1D
-        N, H, W = gt_depths.shape
-        #gt_depths = torch.reshape(gt_depths, (N, -1))
+        #N, H, W = gt_depths.shape
 
         #################### Simulation
         ## Set area under the curve of outgoing ModF to the totalEnergy
         ModFs_scaled = Utils.ScaleMod(self.ModFs, tau=self.tauMin, pAveSource=self.pAveSourcePerPixel)
-
+        # Clip the demodulation functions to [0,1]
+        DemodFs_clipped = torch.clamp(self.DemodFs, 0.0, 1.0)
         # Calculate correlation functions (NxK matrix) and normalize it (zero mean, unit variance)
-        CorrFs = Utils.GetCorrelationFunctions(ModFs_scaled,self.DemodFs,dt=self.dt)
+        CorrFs = Utils.GetCorrelationFunctions(ModFs_scaled,DemodFs_clipped,dt=self.dt)
         NormCorrFs = (CorrFs - torch.mean(CorrFs,0)) / torch.std(CorrFs,0)
-
-        BVals = Utils.ComputeBrightnessVals(ModFs=self.ModFs, DemodFs=self.DemodFs, depths=gt_depths, \
+        BVals = Utils.ComputeBrightnessVals(ModFs=ModFs_scaled, DemodFs=DemodFs_clipped, CorrFs=CorrFs, depths=gt_depths, \
                 pAmbient=self.pAveAmbientPerPixel, beta=self.meanBeta, T=self.T, tau=self.tau, dt=self.dt, gamma=self.gamma)
         
         #### Add noise
@@ -135,26 +133,25 @@ class Pixelwise(torch.nn.Module):
         #    BVals[i,:] = Utils.GetClippedBSamples(nSamples=1,BMean=BVals[i,:],BVar=noiseVar[i,:])
 
         decodedDepths = Decoding.DecodeXCorr(BVals,NormCorrFs)
-
         #print("Decoded depths: {},".format(decodedDepths))
-
         return decodedDepths
 
-        # decodedDepths = ... reshape
         #return ModFs_scaled
-        # return CorrFs
+        #return CorrFs
         #return NormCorrFs
         #return BVals
 
 # Create random Tensors to hold inputs and outputs
 N = 1
-H = 1
-W = 1
+H = 2
+W = 2
 #gt_depths = 10*torch.ones(N, H, W, device=device, dtype=dtype, requires_grad=True)
 gt_depths = 9000*torch.rand(N, H, W, device=device, dtype=dtype, requires_grad=True)
+#gt_depths_np = np.arange(1000,4001,1000)
+#gt_depths = torch.Tensor(gt_depths_np)
 print('gt_depths:',gt_depths)
 
-gt_depths_init = gt_depths.clone()
+#gt_depths_init = gt_depths.clone()
 # y = torch.randn(1, 1, device=device, dtype=dtype, requires_grad=True)
 
 # Construct our model by instantiating the class defined above
@@ -163,33 +160,38 @@ model = Pixelwise()
 # Construct our loss function and an Optimizer. The call to model.parameters()
 # in the SGD constructor will contain the learnable parameters of the two
 # nn.Linear modules which are members of the model.
-criterion = torch.nn.MSELoss(reduction='mean')
-optimizer = optim.Adam([model.DemodFs_phase], lr = 1e-3)
-#optimizer = optim.Adam([model.ModFs, model.DemodFs], lr = 1e-6)
-
+criterion = torch.nn.MSELoss(reduction='sum')
+#optimizer = optim.Adam([model.DemodFs_phase], lr = 1e-3)
+#optimizer = optim.Adam([model.ModFs, model.DemodFs], lr = 1e1)
+optimizer = optim.Adam([model.DemodFs], lr = 1e-2)
 
 # Goal correlation function (build a triangular function)
-# tr = torch.linspace(0,1,steps=25,dtype=torch.float)
-# tr = tr.reshape(-1,1)
-# tr = torch.cat((tr,tr,tr),1)
-# tf = torch.linspace(1,0,steps=25,dtype=torch.float)
-# tf = tf.reshape(-1,1)
-# tf = torch.cat((tf,tf,tf),1)
-# goal = torch.tensor(torch.cat((tr,tf,tf-1,tr-1),0), device=device, requires_grad=True)
-# print(torch.mean(goal,0))
-# print(torch.std(goal,0))
-# print(goal)
+#tr = torch.linspace(0,1,steps=2500,dtype=torch.float)
+#tr = tr.reshape(-1,1)
+#tf = torch.linspace(1,0,steps=2500,dtype=torch.float)
+#tf = tf.reshape(-1,1)
+#t1 = torch.cat((tr,tf,tf-1,tr-1),0)
+#t2 = torch.cat((tf,tf-1,tr-1,tr),0)
+#t3 = torch.cat((tf-1,tr-1,tr,tf),0)
+#goal = torch.cat((t1,t2,t3),1).clone().detach()
+#goal = (goal - torch.mean(goal,0)) / torch.std(goal,0)
+#print(torch.mean(goal,0))
+#print(torch.std(goal,0))
+#print(goal)
 
+# Goal brightness values (computed for depths=1000,2000,3000,4000 and square coding with ideal environment)
+goal = np.array([[0.7997003,0.53336663,0.13376623],[0.5999001,0.73316683,0.06703297],[0.4000999,0.93296703,0.26683317],[0.2002997,0.86623377,0.46663337]])
+goal = torch.Tensor(goal)
 
 
 with torch.autograd.detect_anomaly():
-    for t in range(100):
+    for t in range(1000):
         # Forward pass: Compute predicted y by passing x to the model
         depths_pred = model(gt_depths)
 
         # Compute and print loss
         #loss = criterion(depths_pred, 1000*torch.ones([1,2,2,3], dtype=torch.float, device=device, requires_grad=True))
-        # loss = criterion(depths_pred, goal)
+        #loss = criterion(depths_pred, goal)
         loss = criterion(depths_pred, gt_depths)
 
         if (t%10 == 0):
@@ -200,10 +202,13 @@ with torch.autograd.detect_anomaly():
         loss.backward(retain_graph=True)
         optimizer.step()
 
-    print(depths_pred)
-    ModFs_scaled = Utils.ScaleMod(model.ModFs, tau=model.tauMin, pAveSource=model.pAveSourcePerPixel)
-    print(ModFs_scaled)
+print(depths_pred)
+ModFs_scaled = Utils.ScaleMod(model.ModFs, tau=model.tauMin, pAveSource=model.pAveSourcePerPixel)
+UtilsPlot.PlotCodingScheme(ModFs_scaled,model.DemodFs,model.tau)
 
-    UtilsPlot.PlotCodingScheme(model.ModFs,model.DemodFs)
-    
+#fig, ax = plt.subplots()
+#ax.plot(depths_pred.detach().numpy())
+#ax.plot(goal.detach().numpy())
+#ax.grid()
+#plt.show(block=True)
 

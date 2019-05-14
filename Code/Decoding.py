@@ -5,8 +5,13 @@ Decoding functions for time of flight coding schemes.
 
 #### Library imports
 import numpy as np
+import torch
 
 #### Local imports
+
+
+
+
 
 def DecodeXCorr(BMeasurements, NormCorrFs):
 	"""DecodeXCorr: Generic decoding algorithm that performs a 1D search on the normalized 
@@ -19,11 +24,20 @@ def DecodeXCorr(BMeasurements, NormCorrFs):
 	Returns:
 	    np.array: decodedDepths 
 	"""
+	C, H, W, K = BMeasurements.shape
+	BMeasurements_reshaped = torch.reshape(BMeasurements, (-1, K))
+	B, K = BMeasurements_reshaped.shape
+	N = NormCorrFs.shape[0]
 	## Normalize Brightness Measurements functions
-	NormBMeasurements = (BMeasurements.transpose() - np.mean(BMeasurements, axis=1)) / np.std(BMeasurements, axis=1)
+	NormBMeasurements_reshaped = (BMeasurements_reshaped.t() - torch.mean(BMeasurements_reshaped, dim=1)) / torch.std(BMeasurements_reshaped, dim=1)
 	## Calculate the cross correlation for every measurement and the maximum one will be the depth
-	decodedDepths = np.zeros((NormBMeasurements.shape[1],))
-	for i in range(NormBMeasurements.shape[1]):
-		decodedDepths[i] = np.argmax(np.dot(NormCorrFs, NormBMeasurements[:,i]), axis=0)
-
+	decodedDepths_reshaped = torch.zeros((B,), dtype=torch.float32)
+	enumeration = torch.linspace(0, N - 1, steps=N)
+	beta = 10
+	for i in range(B):
+		Corr_B = torch.mv(NormCorrFs, NormBMeasurements_reshaped[:,i])
+		SM = torch.nn.Softmax(dim=0)
+		Confidence = SM(Corr_B * beta)
+		decodedDepths_reshaped[i] = torch.dot(Confidence, enumeration)
+	decodedDepths = torch.reshape(decodedDepths_reshaped, (C, H, W))
 	return decodedDepths

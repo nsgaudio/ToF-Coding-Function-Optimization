@@ -225,7 +225,7 @@ def GetSquare(N=1000, K=3, tau=TauDefault, totalEnergy=TotalEnergyDefault):
 	t = np.linspace(0, 2*np.pi, N)
 	dt = float(tau) / float(N)
 	#### Declare base square function
-	squareF = (np.cos(t)) > 0
+	squareF = (np.sin(t)) >= 0
 	#### Set each mod/demod pair to its base function and scale modulations
 	for i in range(0,K):
 		## No need to apply phase shift to modF
@@ -241,39 +241,20 @@ def GetSquare(N=1000, K=3, tau=TauDefault, totalEnergy=TotalEnergyDefault):
 	return (modFs, demodFs)
 
 
-def GetBinaryFunc(N=1000, K=3, tau=TauDefault, totalEnergy=TotalEnergyDefault):
-	"""GetCosCos: Get modulation and demodulation functions for sinusoid coding scheme. The shift
-	between each demod function is 2*pi/k where k can be [3,4,5...]
+def GetCodingFromFile(fileName):
+	"""GetCodingFromFile: Get modulation and demodulation functions from defined file
 	
 	Args:
-		N (int): N - Number of Samples
-		k (int): k - Number of coding function
-		freqFactor (float): Multiplicative factor to the fundamental frequency we want to use.
+		fileName: Name of file (has to contain ModFs and DemodFs)
 
 	Returns:
 		np.array: modFs 
 		np.array: demodFs 
 	"""
-	#### Allocate modulation and demodulation vectors
-	modFs = np.zeros((N,K))
-	demodFs = np.zeros((N,K))
-	t = np.linspace(0, 2*np.pi, N)
-	dt = float(tau) / float(N)
-	#### Declare base square function
-	temp = np.concatenate((np.ones(N//4), np.zeros(N//4), np.ones(N//8), np.zeros(N//8), np.ones(N//16)))
-	BinF = np.concatenate((temp, np.zeros(N-np.size(temp))))
-	squareF = (np.cos(t)) > 0
-	#### Set each mod/demod pair to its base function and scale modulations
-	for i in range(0,K):
-		## No need to apply phase shift to modF
-		modFs[:,i] = BinF
-		## Scale  modF so that area matches the total energy
-		modFs[:,i] = Utils.ScaleAreaUnderCurve(modFs[:,i], dx=dt, desiredArea=totalEnergy)
-		## Apply phase shift to demodF
-		demodFs[:,i] = squareF
-	#### Apply phase shifts to demodF
-	shifts = np.arange(0, K)*(float(N)/float(K))
-	demodFs = Utils.ApplyKPhaseShifts(demodFs,shifts)
-	#### Return coding scheme
+	#### Load File
+	coding_file = np.load('coding_functions.npz')
+	modFs = coding_file['ModFs']
+	demodFs = coding_file['DemodFs']
 	return (modFs, demodFs)
+
 

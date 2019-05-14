@@ -33,10 +33,10 @@ class Pixelwise(torch.nn.Module):
         # This involves a set modulation funtion
         self.ModFs = torch.cat((2*torch.ones((int(N/2), 3), device=device, dtype=dtype), torch.zeros((int(N/2),3), device=device, dtype=dtype)),0)
         # p = torch.linspace(0, N-1, N)
-        self.alpha = torch.randn(K, order, device=device, dtype=dtype, requires_grad=True)
+        self.alpha = 100*torch.randn(K, order, device=device, dtype=dtype, requires_grad=True)
         self.omega = torch.randn(K, order, device=device, dtype=dtype, requires_grad=True)
         self.phi = torch.randn(K, order, device=device, dtype=dtype, requires_grad=True)
-        self.DemodFs = torch.zeros(N, K, device=device, dtype=dtype, requires_grad=True)
+        # self.DemodFs = torch.zeros(N, K, device=device, dtype=dtype, requires_grad=True)
         # Will implement if needed, constrains to K identical, shifted demodulation functions
         # self.psi = torch.randn(K, device=device, dtype=dtype, requires_grad=True)
 
@@ -157,4 +157,4 @@ with torch.autograd.detect_anomaly():
     ModFs_scaled = Utils.ScaleMod(model.ModFs, tau=model.tauMin, pAveSource=model.pAveSourcePerPixel)
     print("Scaled Modulation Functions:", ModFs_scaled)
 
-    UtilsPlot.PlotCodingScheme(model.ModFs,model.DemodFs)
+    # UtilsPlot.PlotCodingScheme(model.ModFs,model.DemodFs)

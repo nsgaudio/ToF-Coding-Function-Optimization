@@ -1,5 +1,8 @@
 #### Python imports
 import math
+import matplotlib
+matplotlib.use('TkAgg')
+import matplotlib.pyplot as plt
 #### Library imports
 import numpy as np
 import scipy as sp
@@ -51,13 +54,13 @@ def ScaleMod(ModFs, tau=1., pAveSource=1.):
 	    np.array: ModFs 
 	"""
 	(N,K) = ModFs.shape
-	dt = tau / float(N)
+	dt = tau/float(N)
 	eTotal = tau*pAveSource # Total Energy
 
-	ModFs_clone = ModFs.clone() # Clone ModFs, otherwise leaf variable error
-	ModFs_scaled = torch.zeros([N,K], dtype=torch.float32) # Instantiate scaled ModFs
+	ModFs_clone = ModFs#ModFs.clone() # Clone ModFs, otherwise leaf variable error
+	ModFs_scaled = torch.zeros([N,K], dtype=torch.float) # Instantiate scaled ModFs
 	for i in range(0,K): 
-		ModFs_scaled[:,i] = ScaleAreaUnderCurve(x=ModFs_clone[:,i], dx=dt, desiredArea=eTotal)
+		ModFs_scaled[:,i] = ScaleAreaUnderCurve(x=ModFs[:,i], dx=dt, desiredArea=eTotal)
 		#ModFs[:,i] = ScaleAreaUnderCurve(x=ModFs_clone[:,i], dx=dt, desiredArea=eTotal)
 
 	return ModFs_scaled
@@ -119,8 +122,8 @@ def GetCorrelationFunctions(ModFs, DemodFs, dt=None):
 		temp = complex_conj_multiplication(torch.rfft(ModFs[:,i],1), torch.rfft(DemodFs[:,i],1))
 		CorrFs[:,i] = torch.irfft(temp,1)[0:N]
 	#### Scale by dt
-	CorrFs = CorrFs*dt
-	return CorrFs
+	CorrFs_scaled = CorrFs*dt
+	return CorrFs_scaled
 
 
 def NormalizeBrightnessVals(BVals):
@@ -131,7 +134,7 @@ def NormalizeBrightnessVals(BVals):
 	return NormBVals
 
 
-def ComputeBrightnessVals(ModFs, DemodFs, depths=None, pAmbient=0, beta=1, T=1, tau=1, dt=1, gamma=1):
+def ComputeBrightnessVals(ModFs, DemodFs, CorrFs, depths=None, pAmbient=0, beta=1, T=1, tau=1, dt=1, gamma=1):
 	"""ComputeBrightnessVals: Computes the brightness values for each possible depth.
 	
 	Args:
@@ -153,6 +156,12 @@ def ComputeBrightnessVals(ModFs, DemodFs, depths=None, pAmbient=0, beta=1, T=1, 
 	kappas = torch.sum(DemodFs,0)*dt
 	## Calculate brightness values
 	BVals = (gamma*beta)*(T/tau)*(CorrFs + pAmbient*kappas)
+
+	#fig, ax = plt.subplots()
+	#ax.plot(BVals.detach().numpy())
+	#ax.grid()
+	#plt.show(block=True)
+
 	## Return only the brightness vals for the specified depths
 	BVals = BVals[depths,:]
 	return (BVals)

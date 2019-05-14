@@ -59,7 +59,7 @@ mpl.rcParams.update(plotParams)
 plt.ion()
 
 
-def PlotCodingScheme(ModFs, DemodFs):
+def PlotCodingScheme(ModFs, DemodFs, tau):
 	"""PlotCodingScheme: Create a 1x3 figure with modulation, demodulation, and the correlation.
 	
 	Args:
@@ -72,7 +72,7 @@ def PlotCodingScheme(ModFs, DemodFs):
 	"""
 	#### Assume the following constants
 	totalEnergy = 1.
-	tau = 1.
+	#tau = 1.
 	averagePower = totalEnergy / tau
 	#### Reshape to ensure needed dimensions
 	## Assume that the number of elements is larger than the number of coding pairs, i.e. rows>cols
@@ -90,7 +90,7 @@ def PlotCodingScheme(ModFs, DemodFs):
 	#### Reshape to ensure same dimensions
 	t = t.reshape((N,))
 	#### Get Correlation functions
-	CorrFs = Utils.GetCorrelationFunctions(ModFs=ModFs,DemodFs=DemodFs)
+	CorrFs = Utils.GetCorrelationFunctions(ModFs=ModFs,DemodFs=DemodFs,dt=tau/float(N))
 	#sio.savemat('np_vector.mat', {'vect':CorrFs})
 	#### Plot Decomposition
 	## Clear current plot

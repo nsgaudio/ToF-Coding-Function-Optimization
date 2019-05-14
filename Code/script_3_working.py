@@ -95,8 +95,8 @@ class Pixelwise(torch.nn.Module):
 
 # Create random Tensors to hold inputs and outputs
 N = 1
-H = 2
-W = 2
+H = 5
+W = 5
 gt_depths = 9000*torch.rand(N, H, W, device=device, dtype=dtype, requires_grad=True)
 print('gt_depths:',gt_depths)
 
@@ -107,11 +107,11 @@ model = Pixelwise()
 # in the SGD constructor will contain the learnable parameters of the two
 # nn.Linear modules which are members of the model.
 criterion = torch.nn.MSELoss(reduction='sum')
-optimizer = optim.Adam([model.DemodFs], lr = 1e-2)
+optimizer = optim.Adam([model.DemodFs], lr = 5e-2)
 
 
 with torch.autograd.detect_anomaly():
-    for t in range(1000):
+    for t in range(10000):
         # Forward pass: Compute predicted y by passing x to the model
         depths_pred = model(gt_depths)
 
@@ -128,4 +128,10 @@ with torch.autograd.detect_anomaly():
 print(depths_pred)
 ModFs_scaled = Utils.ScaleMod(model.ModFs, tau=model.tauMin, pAveSource=model.pAveSourcePerPixel)
 UtilsPlot.PlotCodingScheme(ModFs_scaled,model.DemodFs,model.tau)
+
+ModFs_np = model.ModFs.detach().numpy()
+DemodFs_np = model.DemodFs.detach().numpy()
+np.savez('coding_functions', ModFs=ModFs_np, DemodFs=DemodFs_np)
+
+
 

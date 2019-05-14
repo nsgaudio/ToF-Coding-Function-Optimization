@@ -32,8 +32,7 @@ class Pixelwise(torch.nn.Module):
         self.order = order
         # This involves a set modulation funtion
         self.ModFs = torch.cat((2*torch.ones((int(N/2), 3), device=device, dtype=dtype), torch.zeros((int(N/2),3), device=device, dtype=dtype)),0)
-        # p = torch.linspace(0, N-1, N)
-        self.alpha = 100*torch.randn(K, order, device=device, dtype=dtype, requires_grad=True)
+        self.alpha = torch.randn(K, order, device=device, dtype=dtype, requires_grad=True)
         self.omega = torch.randn(K, order, device=device, dtype=dtype, requires_grad=True)
         self.phi = torch.randn(K, order, device=device, dtype=dtype, requires_grad=True)
         # self.DemodFs = torch.zeros(N, K, device=device, dtype=dtype, requires_grad=True)

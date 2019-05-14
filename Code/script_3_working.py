@@ -111,7 +111,7 @@ optimizer = optim.Adam([model.DemodFs], lr = 5e-2)
 
 
 with torch.autograd.detect_anomaly():
-    for t in range(10000):
+    for t in range(2000):
         # Forward pass: Compute predicted y by passing x to the model
         depths_pred = model(gt_depths)
 

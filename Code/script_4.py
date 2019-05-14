@@ -24,10 +24,24 @@ class Pixelwise(torch.nn.Module):
 
         #################### Set Function Parameters
         N = 10000
+        self.N = N
         K = 3
+        self.K = K
+        #### SUPERPOSITION OF SINUSOIDS:
+        order = 4 # The number of sinusoids to sum per function
+        self.order = order
+        # This involves a set modulation funtion
+        self.ModFs = torch.cat((2*torch.ones((int(N/2), 3), device=device, dtype=dtype), torch.zeros((int(N/2),3), device=device, dtype=dtype)),0)
+        self.alpha = torch.randn(K, order, device=device, dtype=dtype, requires_grad=True)
+        self.omega = torch.randn(K, order, device=device, dtype=dtype, requires_grad=True)
+        self.phi = torch.randn(K, order, device=device, dtype=dtype, requires_grad=True)
+        # self.DemodFs = torch.zeros(N, K, device=device, dtype=dtype, requires_grad=True)
+        # Will implement if needed, constrains to K identical, shifted demodulation functions
+        # self.psi = torch.randn(K, device=device, dtype=dtype, requires_grad=True)
+
         #### FOR RANDOM INITIALIZATION:
-        self.ModFs = torch.randn(N, K, device=device, dtype=dtype, requires_grad=True)
-        self.DemodFs = torch.randn(N, K, device=device, dtype=dtype, requires_grad=True)
+        # self.ModFs = torch.randn(N, K, device=device, dtype=dtype, requires_grad=True)
+        # self.DemodFs = torch.randn(N, K, device=device, dtype=dtype, requires_grad=True)
         #### FOR HAMILTONIAN INITIALIZATION:
         #(ModFs_np,DemodFs_np) = CodingFunctions.GetHamK3(N = N)
         #self.ModFs = torch.tensor(ModFs_np, device=device, dtype=dtype, requires_grad=True)
@@ -65,19 +79,28 @@ class Pixelwise(torch.nn.Module):
 
 
     def forward(self, gt_depths):
-        N, H, W = gt_depths.shape
+        _, H, W = gt_depths.shape
         #### Resize gt_depths to 1D
         #gt_depths = torch.reshape(gt_depths, (N, -1))
+
+        DemodFs = torch.zeros(self.N, self.K, device=device, dtype=dtype, requires_grad=False)
+        p = torch.linspace(0, self.N-1, self.N)
+        for k in range(0, self.K):
+            for ord in range(0, self.order):
+                DemodFs[:, k] += self.alpha[k, ord] * torch.sin(self.omega[k, ord] * p + self.phi[k, ord])
 
         #################### Simulation
         ## Set area under the curve of outgoing ModF to the totalEnergy
         ModFs_scaled = Utils.ScaleMod(self.ModFs, tau=self.tauMin, pAveSource=self.pAveSourcePerPixel)
         # Calculate correlation functions (NxK matrix) and normalize it (zero mean, unit variance)
-        CorrFs = Utils.GetCorrelationFunctions(ModFs_scaled,self.DemodFs,dt=self.dt)
+        # CorrFs = Utils.GetCorrelationFunctions(ModFs_scaled,self.DemodFs,dt=self.dt)
+        CorrFs = Utils.GetCorrelationFunctions(ModFs_scaled,DemodFs,dt=self.dt)
         NormCorrFs = (CorrFs - torch.mean(CorrFs,0)) / torch.std(CorrFs,0)
-        BVals = Utils.ComputeBrightnessVals(ModFs=self.ModFs, DemodFs=self.DemodFs, depths=gt_depths, \
+        # BVals = Utils.ComputeBrightnessVals(ModFs=ModFs_scaled, DemodFs=self.DemodFs, depths=gt_depths, \
+        #         pAmbient=self.pAveAmbientPerPixel, beta=self.meanBeta, T=self.T, tau=self.tau, dt=self.dt, gamma=self.gamma)
+        BVals = Utils.ComputeBrightnessVals(ModFs=ModFs_scaled, DemodFs=DemodFs, depths=gt_depths, \
                 pAmbient=self.pAveAmbientPerPixel, beta=self.meanBeta, T=self.T, tau=self.tau, dt=self.dt, gamma=self.gamma)
-        print("BVals shape:", BVals.shape)
+        # print("BVals shape:", BVals.shape)
         #### Add noise
         # Calculate variance
         #noiseVar = BVals*self.gamma + math.pow(self.readNoise*self.gamma, 2) 
@@ -95,8 +118,8 @@ H = 10
 W = 10
 #gt_depths = 10*torch.ones(N, H, W, device=device, dtype=dtype, requires_grad=True)
 gt_depths = 9000*torch.rand(N, H, W, device=device, dtype=dtype, requires_grad=True)
-print("Ground Truth Depths:", gt_depths)
-print("Ground Truth Depths Shape:", gt_depths.shape)
+# print("Ground Truth Depths:", gt_depths)
+# print("Ground Truth Depths Shape:", gt_depths.shape)
 
 gt_depths_init = gt_depths.clone()
 # y = torch.randn(1, 1, device=device, dtype=dtype, requires_grad=True)
@@ -109,13 +132,14 @@ model = Pixelwise()
 # nn.Linear modules which are members of the model.
 # criterion = torch.nn.MSELoss(reduction='mean')
 criterion = torch.nn.MSELoss(reduction='sum')
-optimizer = optim.Adam([model.ModFs, model.DemodFs], lr = 1e-6)
+# optimizer = optim.Adam([model.ModFs, model.DemodFs], lr = 1e-6)
+optimizer = optim.Adam([model.alpha, model.omega, model.phi], lr = 1e-6)
 
 with torch.autograd.detect_anomaly():
     for t in range(1, 100 + 1):
         # Forward pass: Compute predicted y by passing x to the model
         depths_pred = model(gt_depths)
-
+        # print("Depth prediction:", depths_pred)
         # Compute and print loss
         #loss = criterion(depths_pred, 1000*torch.ones([1,2,2,3], dtype=torch.float, device=device, requires_grad=True))
         # loss = criterion(depths_pred, goal)
@@ -133,4 +157,4 @@ with torch.autograd.detect_anomaly():
     ModFs_scaled = Utils.ScaleMod(model.ModFs, tau=model.tauMin, pAveSource=model.pAveSourcePerPixel)
     print("Scaled Modulation Functions:", ModFs_scaled)
 
-    UtilsPlot.PlotCodingScheme(model.ModFs,model.DemodFs)
+    # UtilsPlot.PlotCodingScheme(model.ModFs,model.DemodFs)

@@ -98,7 +98,7 @@ class Pixelwise(torch.nn.Module):
         NormCorrFs = (CorrFs - torch.mean(CorrFs,0)) / torch.std(CorrFs,0)
         # BVals = Utils.ComputeBrightnessVals(ModFs=ModFs_scaled, DemodFs=self.DemodFs, depths=gt_depths, \
         #         pAmbient=self.pAveAmbientPerPixel, beta=self.meanBeta, T=self.T, tau=self.tau, dt=self.dt, gamma=self.gamma)
-        BVals = Utils.ComputeBrightnessVals(ModFs=ModFs_scaled, DemodFs=DemodFs, depths=gt_depths, \
+        BVals = Utils.ComputeBrightnessVals(ModFs=ModFs_scaled, DemodFs=DemodFs, CorrFs=CorrFs, depths=gt_depths, \
                 pAmbient=self.pAveAmbientPerPixel, beta=self.meanBeta, T=self.T, tau=self.tau, dt=self.dt, gamma=self.gamma)
         # print("BVals shape:", BVals.shape)
         #### Add noise
@@ -133,10 +133,10 @@ model = Pixelwise()
 # criterion = torch.nn.MSELoss(reduction='mean')
 criterion = torch.nn.MSELoss(reduction='sum')
 # optimizer = optim.Adam([model.ModFs, model.DemodFs], lr = 1e-6)
-optimizer = optim.Adam([model.alpha, model.omega, model.phi], lr = 1e-6)
+optimizer = optim.Adam([model.alpha, model.omega, model.phi], lr = 1e-4)
 
 with torch.autograd.detect_anomaly():
-    for t in range(1, 100 + 1):
+    for t in range(1, 30 + 1):
         # Forward pass: Compute predicted y by passing x to the model
         depths_pred = model(gt_depths)
         # print("Depth prediction:", depths_pred)
@@ -157,4 +157,4 @@ with torch.autograd.detect_anomaly():
     ModFs_scaled = Utils.ScaleMod(model.ModFs, tau=model.tauMin, pAveSource=model.pAveSourcePerPixel)
     print("Scaled Modulation Functions:", ModFs_scaled)
 
-    # UtilsPlot.PlotCodingScheme(model.ModFs,model.DemodFs)
+    #UtilsPlot.PlotCodingScheme(model.ModFs,model.DemodFs)

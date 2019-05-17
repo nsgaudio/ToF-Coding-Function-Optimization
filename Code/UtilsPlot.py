@@ -56,7 +56,7 @@ mpl.rcParams.update(plotParams)
 plt.ion()
 
 
-def PlotCodingScheme(ModFs, DemodFs, tau):
+def PlotCodingScheme(ModFs, DemodFs, tau=1):
 	"""PlotCodingScheme: Create a 1x3 figure with modulation, demodulation, and the correlation.
 	
 	Args:
@@ -69,7 +69,7 @@ def PlotCodingScheme(ModFs, DemodFs, tau):
 	"""
 	#### Assume the following constants
 	totalEnergy = 1.
-	# tau = 1.
+	#tau = 1.
 	averagePower = totalEnergy / tau
 	#### Reshape to ensure needed dimensions
 	## Assume that the number of elements is larger than the number of coding pairs, i.e. rows>cols

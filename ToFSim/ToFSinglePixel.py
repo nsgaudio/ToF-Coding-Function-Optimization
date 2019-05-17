@@ -18,11 +18,11 @@ import Decoding
 N = 10000
 #################### Get coding functions with total energy = 1
 K = 3
-(ModFs,DemodFs) = CodingFunctions.GetCodingFromFile('coding_functions.npz')
+#(ModFs,DemodFs) = CodingFunctions.GetCodingFromFile('coding_functions.npz')
 #(ModFs,DemodFs) = CodingFunctions.GetCosCos(N = N, K = K)
 #(ModFs,DemodFs) = CodingFunctions.GetSquare(N = N, K = K)
 #(ModFs,DemodFs) = CodingFunctions.GetBinaryFunc(N = N, K = K)
-#(ModFs,DemodFs) = CodingFunctions.GetHamK3(N = N)
+(ModFs,DemodFs) = CodingFunctions.GetHamK3(N = N)
 #(ModFs,DemodFs) = CodingFunctions.GetHamK4(N = N)
 # (ModFs,DemodFs) = CodingFunctions.GetHamK5(N = N)
 # (ModFs,DemodFs) = CodingFunctions.GetMultiFreqCosK5(N = N)
@@ -55,7 +55,7 @@ gamma = 1./(meanBeta*T*(pAveAmbientPerPixel+pAveSourcePerPixel)) # Camera gain. 
 
 #### Set list of depths/depth map
 depths = np.load('sample_pic.npy').astype(int) #np.round(np.random.rand(5)*dMax).astype(int)
-# depths = np.arange(0,10000)
+#depths = np.arange(50,100,10)
 print("True Depths: {}".format(depths))
 
 #################### Simulation
@@ -80,3 +80,7 @@ decodedDepths = Decoding.DecodeXCorr(BVals,NormCorrFs)
 np.save('sample_pic_decoded.npy', decodedDepths)
 
 print("Decoded depths: {},".format(decodedDepths))
+
+error = np.abs(depths - decodedDepths)
+mse = (np.square(depths - decodedDepths)).mean(axis=None)
+print("Pixelwise mean squared error: %f" %(mse))

@@ -225,7 +225,7 @@ def GetSquare(N=1000, K=3, tau=TauDefault, totalEnergy=TotalEnergyDefault):
 	t = np.linspace(0, 2*np.pi, N)
 	dt = float(tau) / float(N)
 	#### Declare base square function
-	squareF = (np.sin(t)) >= 0
+	squareF = (np.cos(t)) >= 0
 	#### Set each mod/demod pair to its base function and scale modulations
 	for i in range(0,K):
 		## No need to apply phase shift to modF

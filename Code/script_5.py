@@ -31,21 +31,29 @@ class Pixelwise(torch.nn.Module):
         sourceExponent = 9
         ambientExponent = 6
 
-        #### Coding
+        #### Coding (Fix ModFs to square, initialize DemodFs at random)
         #N = 10000
         #K = 3
         #self.ModFs = torch.cat((2*torch.ones((int(N/2), 3), device=device, dtype=dtype), torch.zeros((int(N/2),3), device=device, dtype=dtype)),0)
         #temp = 1/np.power(10, 0) * torch.rand(N, K, device=device, dtype=dtype, requires_grad=True) # scaled random initialization
-        #temp = torch.zeros((N, K), device=device, dtype=dtype)
         #self.DemodFs = temp.clone().detach().requires_grad_(True)
 
-        #### Coding (Initialize at Hamiltonian)
+        #### Coding (Initialize ModFs and DemodFs at random)
         N = 10000
         K = 3
-        (ModFs_np,DemodFs_np) = CodingFunctions.GetHamK3(N = N)
-        self.ModFs = torch.tensor(ModFs_np, device=device, dtype=dtype)
-        temp = torch.tensor(DemodFs_np, device=device, dtype=dtype)
+        temp = 1/np.power(10, 5) * torch.rand(N, K, device=device, dtype=dtype, requires_grad=True) # scaled random initialization
+        self.ModFs = temp.clone().detach().requires_grad_(True)
+        temp = 1/np.power(10, 5) * torch.rand(N, K, device=device, dtype=dtype, requires_grad=True) # scaled random initialization
         self.DemodFs = temp.clone().detach().requires_grad_(True)
+
+        #### Coding (Initialize at Hamiltonian)
+        #N = 10000
+        #K = 3
+        #(ModFs_np,DemodFs_np) = CodingFunctions.GetHamK3(N = N)
+        #temp = torch.tensor(ModFs_np, device=device, dtype=dtype)
+        #self.ModFs = temp.clone().detach().requires_grad_(True)
+        #temp = torch.tensor(DemodFs_np, device=device, dtype=dtype)
+        #self.DemodFs = temp.clone().detach().requires_grad_(True)
 
         #### Global parameters
         speedOfLight = 299792458. * 1000. # mm / sec 
@@ -103,13 +111,6 @@ class Pixelwise(torch.nn.Module):
         return decodedDepths
 
 
-# Create random Tensors to hold inputs and outputs
-N = 1
-H = 10
-W = 10
-gt_depths = 9000*torch.rand(N, H, W, device=device, dtype=dtype, requires_grad=True)
-print('gt_depths:',gt_depths)
-
 # Construct our model by instantiating the class defined above
 model = Pixelwise()
 
@@ -117,11 +118,18 @@ model = Pixelwise()
 # in the SGD constructor will contain the learnable parameters of the two
 # nn.Linear modules which are members of the model.
 criterion = torch.nn.MSELoss(reduction='sum')
-optimizer = optim.Adam([model.DemodFs], lr = 5e-3)
+optimizer = optim.Adam([model.ModFs,model.DemodFs], lr = 5e-2)
 
 
 with torch.autograd.detect_anomaly():
     for t in range(1000):
+        # Create random Tensors to hold inputs and outputs (sample fresh each iteration (generalization))
+        N = 1
+        H = 10
+        W = 10
+        gt_depths = 1000+8000*torch.rand(N, H, W, device=device, dtype=dtype, requires_grad=True)
+        #print(gt_depths)
+
         # Forward pass: Compute predicted y by passing x to the model
         depths_pred = model(gt_depths)
 
@@ -137,11 +145,13 @@ with torch.autograd.detect_anomaly():
 
 print(depths_pred)
 ModFs_scaled = Utils.ScaleMod(model.ModFs, tau=model.tauMin, pAveSource=model.pAveSourcePerPixel)
-UtilsPlot.PlotCodingScheme(ModFs_scaled,model.DemodFs,model.tau)
+UtilsPlot.PlotCodingScheme(model.ModFs,model.DemodFs)
 
 ModFs_np = model.ModFs.detach().numpy()
 DemodFs_np = model.DemodFs.detach().numpy()
-np.savez('coding_functions', ModFs=ModFs_np, DemodFs=DemodFs_np)
+CorrFs = Utils.GetCorrelationFunctions(model.ModFs,model.DemodFs)
+CorrFs_np = CorrFs.detach().numpy()
+np.savez('coding_functions.npz', ModFs=ModFs_np, DemodFs=DemodFs_np, CorrFs=CorrFs_np)
 
 
 

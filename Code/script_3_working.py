@@ -32,11 +32,19 @@ class Pixelwise(torch.nn.Module):
         ambientExponent = 6
 
         #### Coding
+        #N = 10000
+        #K = 3
+        #self.ModFs = torch.cat((2*torch.ones((int(N/2), 3), device=device, dtype=dtype), torch.zeros((int(N/2),3), device=device, dtype=dtype)),0)
+        #temp = 1/np.power(10, 0) * torch.rand(N, K, device=device, dtype=dtype, requires_grad=True) # scaled random initialization
+        #temp = torch.zeros((N, K), device=device, dtype=dtype)
+        #self.DemodFs = temp.clone().detach().requires_grad_(True)
+
+        #### Coding (Initialize at Hamiltonian)
         N = 10000
         K = 3
-        self.ModFs = torch.cat((2*torch.ones((int(N/2), 3), device=device, dtype=dtype), torch.zeros((int(N/2),3), device=device, dtype=dtype)),0)
-        temp = 1/np.power(10, 0) * torch.rand(N, K, device=device, dtype=dtype, requires_grad=True) # scaled random initialization
-        #temp = torch.zeros((N, K), device=device, dtype=dtype)
+        (ModFs_np,DemodFs_np) = CodingFunctions.GetHamK3(N = N)
+        self.ModFs = torch.tensor(ModFs_np, device=device, dtype=dtype)
+        temp = torch.tensor(DemodFs_np, device=device, dtype=dtype)
         self.DemodFs = temp.clone().detach().requires_grad_(True)
 
         #### Global parameters
@@ -77,7 +85,9 @@ class Pixelwise(torch.nn.Module):
         DemodFs_clipped = torch.clamp(self.DemodFs, 0.0, 1.0)
         # Calculate correlation functions (NxK matrix) and normalize it (zero mean, unit variance)
         CorrFs = Utils.GetCorrelationFunctions(ModFs_scaled,DemodFs_clipped,dt=self.dt)
-        NormCorrFs = (CorrFs - torch.mean(CorrFs,0)) / torch.std(CorrFs,0)
+        NormCorrFs = (CorrFs.t() - torch.mean(CorrFs,1)) / torch.std(CorrFs,1)
+        NormCorrFs = NormCorrFs.t()
+        # Compute brightness values
         BVals = Utils.ComputeBrightnessVals(ModFs=ModFs_scaled, DemodFs=DemodFs_clipped, CorrFs=CorrFs, depths=gt_depths, \
                 pAmbient=self.pAveAmbientPerPixel, beta=self.meanBeta, T=self.T, tau=self.tau, dt=self.dt, gamma=self.gamma)
         
@@ -95,8 +105,8 @@ class Pixelwise(torch.nn.Module):
 
 # Create random Tensors to hold inputs and outputs
 N = 1
-H = 5
-W = 5
+H = 10
+W = 10
 gt_depths = 9000*torch.rand(N, H, W, device=device, dtype=dtype, requires_grad=True)
 print('gt_depths:',gt_depths)
 
@@ -107,11 +117,11 @@ model = Pixelwise()
 # in the SGD constructor will contain the learnable parameters of the two
 # nn.Linear modules which are members of the model.
 criterion = torch.nn.MSELoss(reduction='sum')
-optimizer = optim.Adam([model.DemodFs], lr = 5e-2)
+optimizer = optim.Adam([model.DemodFs], lr = 5e-3)
 
 
 with torch.autograd.detect_anomaly():
-    for t in range(2000):
+    for t in range(1000):
         # Forward pass: Compute predicted y by passing x to the model
         depths_pred = model(gt_depths)
 

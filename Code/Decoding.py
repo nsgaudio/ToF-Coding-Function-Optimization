@@ -4,6 +4,8 @@ Decoding functions for time of flight coding schemes.
 #### Python imports
 
 #### Library imports
+import matplotlib
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
 
@@ -28,16 +30,19 @@ def DecodeXCorr(BMeasurements, NormCorrFs):
 	BMeasurements_reshaped = torch.reshape(BMeasurements, (-1, K))
 	B, K = BMeasurements_reshaped.shape
 	N = NormCorrFs.shape[0]
+
 	## Normalize Brightness Measurements functions
 	NormBMeasurements_reshaped = (BMeasurements_reshaped.t() - torch.mean(BMeasurements_reshaped, dim=1)) / torch.std(BMeasurements_reshaped, dim=1)
+
 	## Calculate the cross correlation for every measurement and the maximum one will be the depth
-	decodedDepths_reshaped = torch.zeros((B,), dtype=torch.float32)
+	decodedDepths_reshaped = torch.zeros((B,), dtype=torch.float)
 	enumeration = torch.linspace(0, N - 1, steps=N)
-	beta = 10
+	beta = 20
 	for i in range(B):
 		Corr_B = torch.mv(NormCorrFs, NormBMeasurements_reshaped[:,i])
 		SM = torch.nn.Softmax(dim=0)
 		Confidence = SM(Corr_B * beta)
 		decodedDepths_reshaped[i] = torch.dot(Confidence, enumeration)
+		#decodedDepths_reshaped[i] = torch.argmax(Corr_B,dim=0)
 	decodedDepths = torch.reshape(decodedDepths_reshaped, (C, H, W))
 	return decodedDepths

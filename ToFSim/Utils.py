@@ -53,7 +53,6 @@ def ScaleMod(ModFs, tau=1., pAveSource=1.):
 	eTotal = tau*pAveSource # Total Energy
 	for i in range(0,K): 
 		ModFs[:,i] = ScaleAreaUnderCurve(x=ModFs[:,i], dx=dt, desiredArea=eTotal)
-	print(ModFs)
 	return ModFs
 
 

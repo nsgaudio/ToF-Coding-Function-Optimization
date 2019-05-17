@@ -37,7 +37,7 @@ def DecodeXCorr(BMeasurements, NormCorrFs):
 	## Calculate the cross correlation for every measurement and the maximum one will be the depth
 	decodedDepths_reshaped = torch.zeros((B,), dtype=torch.float)
 	enumeration = torch.linspace(0, N - 1, steps=N)
-	beta = 20
+	beta = 10
 	for i in range(B):
 		Corr_B = torch.mv(NormCorrFs, NormBMeasurements_reshaped[:,i])
 		SM = torch.nn.Softmax(dim=0)

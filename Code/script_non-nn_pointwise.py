@@ -129,7 +129,6 @@ with torch.autograd.detect_anomaly():
         H = 10
         W = 10
         gt_depths = 1000+8000*torch.rand(N, H, W, device=device, dtype=dtype, requires_grad=True)
-        #print(gt_depths)
 
         # Forward pass: Compute predicted y by passing x to the model
         depths_pred = model(gt_depths)
@@ -153,6 +152,4 @@ DemodFs_np = model.DemodFs.detach().numpy()
 CorrFs = Utils.GetCorrelationFunctions(model.ModFs,model.DemodFs)
 CorrFs_np = CorrFs.detach().numpy()
 np.savez('coding_functions.npz', ModFs=ModFs_np, DemodFs=DemodFs_np, CorrFs=CorrFs_np)
-
-
 

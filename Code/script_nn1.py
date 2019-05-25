@@ -149,7 +149,9 @@ class Pixelwise(torch.nn.Module):
 
 
         # Normalize BVals
-        BVals = (BVals - torch.mean(BVals))/torch.std(BVals)
+        BVals_mean = torch.mean(BVals)
+        BVals_std = torch.std(BVals)
+        BVals = (BVals - BVals_mean)/BVals_std
 
         #### CNN
         # Down Convolution
@@ -181,6 +183,9 @@ data = loadmat('example.mat')
 data = data['depths']
 data = torch.from_numpy(data)
 gt_depths = data.float().to(device).requires_grad_(True)
+gt_depths_mean = torch.mean(gt_depths)
+gt_depths_std = torch.std(gt_depths)
+normalized_gt_depths = (gt_depths-gt_depths_mean)/gt_depths_std
 
 # Create random Tensors to hold inputs and outputs (sample fresh each iteration (generalization))
 #N = 2
@@ -196,7 +201,7 @@ with torch.autograd.detect_anomaly():
         depths_pred = model(gt_depths)
 
         # Compute and print loss
-        loss = criterion(depths_pred, (gt_depths-torch.mean(gt_depths))/torch.std(gt_depths))
+        loss = criterion(depths_pred, normalized_gt_depths)
         if (t%10 == 0):
             print("Iteration %d, Loss value: %f" %(t, loss.item()))
             print("Depths pred:", depths_pred[2,10:13,10:13])
@@ -207,7 +212,9 @@ with torch.autograd.detect_anomaly():
         loss.backward(retain_graph=True)
         optimizer.step()
 
-print("Depths predictions - GT:", depths_pred - ((gt_depths-torch.mean(gt_depths))/torch.std(gt_depths)))
+depths_pred = depths_pred*gt_depths_std + gt_depths_mean
+
+print("Depths predictions - GT:", (depths_pred-gt_depths))
 ModFs_scaled = Utils.ScaleMod(model.ModFs, tau=model.tauMin, pAveSource=model.pAveSourcePerPixel)
 UtilsPlot.PlotCodingScheme(model.ModFs,model.DemodFs)
 

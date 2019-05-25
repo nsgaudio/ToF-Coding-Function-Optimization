@@ -25,9 +25,9 @@ patches_test = depths(N_val+1:N_test, 1:448, :);
 
 row_patches =  floor(H_in/D);
 col_patches = floor(W_in/D);
-N = N_train * row_patches * col_patches;
+N = N_in * row_patches * col_patches;
 
-patches_train = single(zeros(N, D, D));
+patches_train = single(zeros(N_train, D, D));
 
 ind = 1;
 for n = 1:N_train
@@ -40,7 +40,7 @@ for n = 1:N_train
 end
 
 filename = ['patches_', num2str(D), '.mat'];
-save(filename, 'patches_train', 'patches_val', 'patches_test')
+% save(filename, 'patches_train', 'pat)
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%TEST SCRIPT%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

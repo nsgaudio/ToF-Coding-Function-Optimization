@@ -39,6 +39,7 @@ for n = 1:N_train
     end
 end
 
+patches_train = patches_train(randperm(length(patches_train(:, 1, 1))), :, :);
 filename = ['patches_', num2str(D), '.mat'];
 save(filename, 'patches_train', 'patches_val', 'patches_test')
 

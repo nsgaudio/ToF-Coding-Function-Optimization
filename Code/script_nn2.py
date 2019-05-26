@@ -8,6 +8,7 @@ import torch.optim as optim      # implementing various optimization algorithms
 import torch.nn.functional as F  # a lower level (compared to torch.nn) interface
 import math
 from scipy.io import loadmat
+import random
 
 # Local imports
 import CodingFunctions
@@ -238,7 +239,7 @@ class CNN(torch.nn.Module):
 # Construct our model by instantiating the class defined above
 # Choose from: 'sequential', 'skip_connection'
 model = CNN('skip_connection')
-
+print("MODEL MADE")
 # Construct our loss function and an Optimizer. The call to model.parameters()
 # in the SGD constructor will contain the learnable parameters of the two
 # nn.Linear modules which are members of the model.
@@ -271,51 +272,41 @@ train_normalized_gt_depths = (train_gt_depths-train_gt_depths_mean)/train_gt_dep
 val_normalized_gt_depths = (val_gt_depths-val_gt_depths_mean)/val_gt_depths_std
 test_normalized_gt_depths = (test_gt_depths-test_gt_depths_mean)/test_gt_depths_std
 
+print("DATA IMPORTED")
+
 # Create random Tensors to hold inputs and outputs (sample fresh each iteration (generalization))
 #N = 2
 #H = 64
 #W = 64
 #gt_depths = 1000+8000*torch.rand(N, H, W, device=device, dtype=dtype, requires_grad=True)
 
-
-# with torch.autograd.detect_anomaly():
-#     for t in range(1, 1001):
-
-#         # Forward pass: Compute predicted y by passing x to the model
-#         depths_pred = model(gt_depths)
-
-#         # Compute and print loss
-#         loss = criterion(depths_pred, normalized_gt_depths)
-#         if (t == 1 or t%10 == 0):
-#             print("Iteration %d, Loss value: %f" %(t, loss.item()))
-#             # print("Depths pred:", depths_pred[2,10:13,10:13])
-#             # print("GT Depths:", ((gt_depths-torch.mean(gt_depths))/torch.std(gt_depths))[2,10:13,10:13])
-
-#         # Zero gradients, perform a backward pass, and update the weights.
-#         optimizer.zero_grad()
-#         loss.backward(retain_graph=True)
-#         optimizer.step()
-
-
 with torch.autograd.detect_anomaly():
     iteration = 1
     increased = 0
     patience = 10
-    continue_training = True
+    train_batch_size = 3
+    val_batch_size = 4
+    train_enumeration = torch.arange(train_gt_depths.shape[0])
+    val_enumeration = torch.arange(val_gt_depths.shape[0])
+    train_enumeration = train_enumeration.tolist()
+    val_enumeration = val_enumeration.tolist()
     while increased <= patience:
+        train_ind = random.sample(train_enumeration, train_batch_size)
+        val_ind = random.sample(val_enumeration, val_batch_size)
         # Forward pass: Compute predicted y by passing x to the model
-        train_depths_pred = model(train_gt_depths)
-        val_depths_pred = model(val_gt_depths)
+        train_depths_pred = model(train_gt_depths[train_ind])
+        val_depths_pred = model(val_gt_depths[val_ind])
         # Compute and print loss
-        train_loss = criterion(train_depths_pred, train_normalized_gt_depths)
-        val_loss = criterion(train_depths_pred, train_normalized_gt_depths)
-        if (iteration == 1 or iteration%10 == 0):
-            print("Iteration: %d, Train Loss: %f, Val Loss:, %f" %(iteration, train_loss.item(), val_loss.item()))
-        if iteration == 1:
-            best_val_loss = val_loss
+        train_loss = criterion(train_depths_pred, train_normalized_gt_depths[train_ind])
+        val_loss = criterion(val_depths_pred, val_normalized_gt_depths[val_ind])
+        # if (iteration == 1 or iteration%10 == 0):
+        #     print("Iteration: %d, Train Loss: %f, Val Loss:, %f" %(iteration, train_loss.item(), val_loss.item()))
+        print("Iteration: %d, Train Loss: %f, Val Loss:, %f" %(iteration, train_loss.item(), val_loss.item()))
 
-        if val_loss < best_val_loss:
+        if iteration == 1 or val_loss < best_val_loss:
             best_val_loss = val_loss
+            best_iteration = iteration
+            best_model = model
             increased = 0
         else:
             increased = increased + 1
@@ -326,17 +317,19 @@ with torch.autograd.detect_anomaly():
         train_loss.backward(retain_graph=True)
         optimizer.step()
 
+print("DONE TRAINING")
+print("Best Validation Loss:", best_val_loss.item())
+print("Best Iteration:", best_iteration)
 
-
-test_depths_pred = model(test_gt_depths)
+test_depths_pred = best_model(test_gt_depths)
 test_depths_pred = test_depths_pred*test_gt_depths_std + test_gt_depths_mean
 
 print("Test Depths predictions - Test GT:", (test_depths_pred-test_gt_depths))
-ModFs_scaled = Utils.ScaleMod(model.ModFs, tau=model.tauMin, pAveSource=model.pAveSourcePerPixel)
-UtilsPlot.PlotCodingScheme(model.ModFs,model.DemodFs)
+ModFs_scaled = Utils.ScaleMod(best_model.ModFs, tau=best_model.tauMin, pAveSource=best_model.pAveSourcePerPixel)
+UtilsPlot.PlotCodingScheme(best_model.ModFs,best_model.DemodFs)
 
-ModFs_np = model.ModFs.detach().numpy()
-DemodFs_np = model.DemodFs.detach().numpy()
-CorrFs = Utils.GetCorrelationFunctions(model.ModFs,model.DemodFs)
+ModFs_np = best_model.ModFs.detach().numpy()
+DemodFs_np = best_model.DemodFs.detach().numpy()
+CorrFs = Utils.GetCorrelationFunctions(best_model.ModFs,best_model.DemodFs)
 CorrFs_np = CorrFs.detach().numpy()
 np.savez('coding_functions.npz', ModFs=ModFs_np, DemodFs=DemodFs_np, CorrFs=CorrFs_np)

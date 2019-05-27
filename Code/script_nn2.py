@@ -281,29 +281,29 @@ with torch.autograd.detect_anomaly():
     patience = 10
     train_batch_size = 4
     val_batch_size = 4
+    val_every = 10
     train_enumeration = torch.arange(train_gt_depths.shape[0])
     val_enumeration = torch.arange(val_gt_depths.shape[0])
     train_enumeration = train_enumeration.tolist()
     val_enumeration = val_enumeration.tolist()
     while increased <= patience:
         train_ind = random.sample(train_enumeration, train_batch_size)
-        val_ind = random.sample(val_enumeration, val_batch_size)
         # Forward pass: Compute predicted y by passing x to the model
         train_depths_pred = model(train_gt_depths[train_ind])
-        val_depths_pred = model(val_gt_depths[val_ind])
         # Compute and print loss
         train_loss = criterion(train_depths_pred, train_normalized_gt_depths[train_ind])
-        val_loss = criterion(val_depths_pred, val_normalized_gt_depths[val_ind])
-        if (iteration == 1 or iteration%10 == 0):
+        if iteration == 1 or iteration%val_every == 0:
+            val_ind = random.sample(val_enumeration, val_batch_size)
+            val_depths_pred = model(val_gt_depths[val_ind])
+            val_loss = criterion(val_depths_pred, val_normalized_gt_depths[val_ind])
             print("Iteration: %d, Train Loss: %f, Val Loss:, %f" %(iteration, train_loss.item(), val_loss.item()))
-
-        if iteration == 1 or val_loss < best_val_loss:
-            best_val_loss = val_loss
-            best_iteration = iteration
-            best_model = model
-            increased = 0
-        else:
-            increased = increased + 1
+            if iteration == 1 or val_loss < best_val_loss:
+                best_val_loss = val_loss
+                best_iteration = iteration
+                best_model = model
+                increased = 0
+            else:
+                increased = increased + 1
         iteration = iteration + 1
 
         # Zero gradients, perform a backward pass, and update the weights.
@@ -319,9 +319,11 @@ print("Best Iteration:", best_iteration)
 # Needs to be implemented in batches in order to work
 #test_depths_pred = best_model(test_gt_depths)
 #test_depths_pred = test_depths_pred*test_gt_depths_std + test_gt_depths_mean
-
 #print("Test Depths predictions - Test GT:", (test_depths_pred-test_gt_depths))
 
+test_depths_pred = best_model(test_gt_depths[0, :, :])
+test_depths_pred = test_depths_pred*test_gt_depths_std + test_gt_depths_mean
+print("Test Depths predictions - Test GT:", (test_depths_pred-test_gt_depths[0, :, :]))
 
 ModFs_np = best_model.ModFs.cpu().detach().numpy()
 DemodFs_np = best_model.DemodFs.cpu().detach().numpy()

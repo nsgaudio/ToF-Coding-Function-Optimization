@@ -38,7 +38,7 @@ def ScaleAreaUnderCurve(x, dx=0., desiredArea=1.):
 	return y 
 
 
-def ScaleMod(ModFs, tau=1., pAveSource=1.):
+def ScaleMod(ModFs, device, tau=1., pAveSource=1.):
 	"""ScaleMod: Scale modulation appropriately given the beta of the scene point, the average
 	source power and the repetition frequency.
 	
@@ -56,7 +56,7 @@ def ScaleMod(ModFs, tau=1., pAveSource=1.):
 	eTotal = tau*pAveSource # Total Energy
 
 	ModFs_clone = ModFs#ModFs.clone() # Clone ModFs, otherwise leaf variable error
-	ModFs_scaled = torch.zeros([N,K], dtype=torch.float) # Instantiate scaled ModFs
+	ModFs_scaled = torch.zeros([N,K], dtype=torch.float, device=device) # Instantiate scaled ModFs
 	for i in range(0,K): 
 		ModFs_scaled[:,i] = ScaleAreaUnderCurve(x=ModFs[:,i], dx=dt, desiredArea=eTotal)
 		#ModFs[:,i] = ScaleAreaUnderCurve(x=ModFs_clone[:,i], dx=dt, desiredArea=eTotal)
@@ -83,7 +83,7 @@ def ApplyKPhaseShifts(x, shifts):
 
 	return x
 
-def complex_conj_multiplication(t1, t2):
+def complex_conj_multiplication(t1, t2, device):
 	"""Multiplies the complex conjugate of tensor t1 with tensor t2
 
 	Args:
@@ -98,7 +98,7 @@ def complex_conj_multiplication(t1, t2):
 	imag1_conj = -1*imag1
 	return torch.stack([real1 * real2 - imag1_conj * imag2, real1 * imag2 + imag1_conj * real2], dim = -1)
 
-def GetCorrelationFunctions(ModFs, DemodFs, dt=None):
+def GetCorrelationFunctions(ModFs, DemodFs, device, dt=None):
 	"""GetCorrelationFunctions: Calculate the circular correlation of all modF and demodF.
 	
 	Args:
@@ -114,10 +114,10 @@ def GetCorrelationFunctions(ModFs, DemodFs, dt=None):
 	#### Get dt
 	if(dt == None): dt = 1./N
 	#### Allocate the correlation function matrix
-	CorrFs = torch.zeros(ModFs.shape)
+	CorrFs = torch.zeros(ModFs.shape,device=device)
 	#### Get correlation functions
 	for i in range(0,K):
-		temp = complex_conj_multiplication(torch.rfft(ModFs[:,i],1), torch.rfft(DemodFs[:,i],1))
+		temp = complex_conj_multiplication(torch.rfft(ModFs[:,i],1), torch.rfft(DemodFs[:,i],1), device=device)
 		CorrFs[:,i] = torch.irfft(temp,1)[0:N]
 	#### Scale by dt
 	CorrFs_scaled = CorrFs*dt

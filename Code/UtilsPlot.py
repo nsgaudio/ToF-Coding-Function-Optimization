@@ -56,7 +56,7 @@ mpl.rcParams.update(plotParams)
 plt.ion()
 
 
-def PlotCodingScheme(ModFs, DemodFs, tau=1):
+def PlotCodingScheme(ModFs, DemodFs, device, tau=1):
 	"""PlotCodingScheme: Create a 1x3 figure with modulation, demodulation, and the correlation.
 	
 	Args:
@@ -87,7 +87,7 @@ def PlotCodingScheme(ModFs, DemodFs, tau=1):
 	#### Reshape to ensure same dimensions
 	t = t.reshape((N,))
 	#### Get Correlation functions
-	CorrFs = Utils.GetCorrelationFunctions(ModFs=ModFs,DemodFs=DemodFs,dt=tau/float(N))
+	CorrFs = Utils.GetCorrelationFunctions(ModFs=ModFs,DemodFs=DemodFs,device=device,dt=tau/float(N))
 	#sio.savemat('np_vector.mat', {'vect':CorrFs})
 	#### Plot Decomposition
 	## Clear current plot

@@ -19,7 +19,7 @@ import Decoding
 
 dtype = torch.float
 device = torch.device("cpu")
-# device = torch.device("cuda:0") # Uncomment this to run on GPU
+device = torch.device("cuda:0") # Uncomment this to run on GPU
 
 class CNN(torch.nn.Module):
     def __init__(self, architecture):
@@ -54,9 +54,9 @@ class CNN(torch.nn.Module):
         self.K = K
         (ModFs_np,DemodFs_np) = CodingFunctions.GetHamK3(N = N)
         temp = torch.tensor(ModFs_np, device=device, dtype=dtype)
-        self.ModFs = temp.clone().detach().requires_grad_(True)
+        self.ModFs = temp.clone().detach().requires_grad_(True).to(device=device)
         temp = torch.tensor(DemodFs_np, device=device, dtype=dtype)
-        self.DemodFs = temp.clone().detach().requires_grad_(True)
+        self.DemodFs = temp.clone().detach().requires_grad_(True).to(device=device)
 
         self.architecture = architecture
         #### Global parameters
@@ -95,11 +95,11 @@ class CNN(torch.nn.Module):
 
         #################### Simulation
         ## Set area under the curve of outgoing ModF to the totalEnergy
-        ModFs_scaled = Utils.ScaleMod(self.ModFs, tau=self.tauMin, pAveSource=self.pAveSourcePerPixel)
+        ModFs_scaled = Utils.ScaleMod(self.ModFs, device=device, tau=self.tauMin, pAveSource=self.pAveSourcePerPixel)
         # Clip the demodulation functions to [0,1]
         #DemodFs_clipped = torch.clamp(self.DemodFs, 0.0, 1.0)
         # Calculate correlation functions (NxK matrix) and normalize it (zero mean, unit variance)
-        CorrFs = Utils.GetCorrelationFunctions(ModFs_scaled,self.DemodFs,dt=self.dt)
+        CorrFs = Utils.GetCorrelationFunctions(ModFs_scaled,self.DemodFs,device=device,dt=self.dt)
         NormCorrFs = (CorrFs.t() - torch.mean(CorrFs,1)) / torch.std(CorrFs,1)
         NormCorrFs = NormCorrFs.t()
         # Compute brightness values
@@ -239,12 +239,13 @@ class CNN(torch.nn.Module):
 # Construct our model by instantiating the class defined above
 # Choose from: 'sequential', 'skip_connection'
 model = CNN('skip_connection')
+model.cuda()
 print("MODEL MADE")
 # Construct our loss function and an Optimizer. The call to model.parameters()
 # in the SGD constructor will contain the learnable parameters of the two
 # nn.Linear modules which are members of the model.
 criterion = torch.nn.MSELoss(reduction='sum')
-optimizer = optim.Adam(model.parameters(), lr = 3e-3)
+optimizer = optim.Adam(model.parameters(), lr = 1e-3)
 
 # Load data
 data = loadmat('patches_64.mat')
@@ -274,17 +275,11 @@ test_normalized_gt_depths = (test_gt_depths-test_gt_depths_mean)/test_gt_depths_
 
 print("DATA IMPORTED")
 
-# Create random Tensors to hold inputs and outputs (sample fresh each iteration (generalization))
-#N = 2
-#H = 64
-#W = 64
-#gt_depths = 1000+8000*torch.rand(N, H, W, device=device, dtype=dtype, requires_grad=True)
-
 with torch.autograd.detect_anomaly():
     iteration = 1
     increased = 0
     patience = 10
-    train_batch_size = 3
+    train_batch_size = 4
     val_batch_size = 4
     train_enumeration = torch.arange(train_gt_depths.shape[0])
     val_enumeration = torch.arange(val_gt_depths.shape[0])
@@ -299,9 +294,8 @@ with torch.autograd.detect_anomaly():
         # Compute and print loss
         train_loss = criterion(train_depths_pred, train_normalized_gt_depths[train_ind])
         val_loss = criterion(val_depths_pred, val_normalized_gt_depths[val_ind])
-        # if (iteration == 1 or iteration%10 == 0):
-        #     print("Iteration: %d, Train Loss: %f, Val Loss:, %f" %(iteration, train_loss.item(), val_loss.item()))
-        print("Iteration: %d, Train Loss: %f, Val Loss:, %f" %(iteration, train_loss.item(), val_loss.item()))
+        if (iteration == 1 or iteration%10 == 0):
+            print("Iteration: %d, Train Loss: %f, Val Loss:, %f" %(iteration, train_loss.item(), val_loss.item()))
 
         if iteration == 1 or val_loss < best_val_loss:
             best_val_loss = val_loss
@@ -316,20 +310,21 @@ with torch.autograd.detect_anomaly():
         optimizer.zero_grad()
         train_loss.backward(retain_graph=True)
         optimizer.step()
+        torch.cuda.empty_cache()
 
 print("DONE TRAINING")
 print("Best Validation Loss:", best_val_loss.item())
 print("Best Iteration:", best_iteration)
 
-test_depths_pred = best_model(test_gt_depths)
-test_depths_pred = test_depths_pred*test_gt_depths_std + test_gt_depths_mean
+# Needs to be implemented in batches in order to work
+#test_depths_pred = best_model(test_gt_depths)
+#test_depths_pred = test_depths_pred*test_gt_depths_std + test_gt_depths_mean
 
-print("Test Depths predictions - Test GT:", (test_depths_pred-test_gt_depths))
-ModFs_scaled = Utils.ScaleMod(best_model.ModFs, tau=best_model.tauMin, pAveSource=best_model.pAveSourcePerPixel)
-UtilsPlot.PlotCodingScheme(best_model.ModFs,best_model.DemodFs)
+#print("Test Depths predictions - Test GT:", (test_depths_pred-test_gt_depths))
 
-ModFs_np = best_model.ModFs.detach().numpy()
-DemodFs_np = best_model.DemodFs.detach().numpy()
-CorrFs = Utils.GetCorrelationFunctions(best_model.ModFs,best_model.DemodFs)
-CorrFs_np = CorrFs.detach().numpy()
+
+ModFs_np = best_model.ModFs.cpu().detach().numpy()
+DemodFs_np = best_model.DemodFs.cpu().detach().numpy()
+CorrFs = Utils.GetCorrelationFunctions(best_model.ModFs,best_model.DemodFs, device=device)
+CorrFs_np = CorrFs.cpu().detach().numpy()
 np.savez('coding_functions.npz', ModFs=ModFs_np, DemodFs=DemodFs_np, CorrFs=CorrFs_np)

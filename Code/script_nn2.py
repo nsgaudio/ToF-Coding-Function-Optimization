@@ -244,8 +244,8 @@ print("MODEL MADE")
 # Construct our loss function and an Optimizer. The call to model.parameters()
 # in the SGD constructor will contain the learnable parameters of the two
 # nn.Linear modules which are members of the model.
-criterion = torch.nn.MSELoss(reduction='sum')
-optimizer = optim.Adam(model.parameters(), lr = 1e-3)
+criterion = torch.nn.MSELoss(reduction='mean')
+optimizer = optim.Adam(model.parameters(), lr = 1e-4)
 
 # Load data
 data = loadmat('patches_64.mat')
@@ -264,10 +264,14 @@ test_gt_depths = test.float().to(device).requires_grad_(True)
 train_gt_depths_mean = torch.mean(train_gt_depths)
 val_gt_depths_mean = torch.mean(val_gt_depths)
 test_gt_depths_mean = torch.mean(test_gt_depths)
+print("train mean:", train_gt_depths_mean)
+print("val mean:", val_gt_depths_mean)
 
 train_gt_depths_std = torch.std(train_gt_depths)
 val_gt_depths_std = torch.std(val_gt_depths)
 test_gt_depths_std = torch.std(test_gt_depths)
+print("train std:", train_gt_depths_std)
+print("val std:", val_gt_depths_std)
 
 train_normalized_gt_depths = (train_gt_depths-train_gt_depths_mean)/train_gt_depths_std
 val_normalized_gt_depths = (val_gt_depths-val_gt_depths_mean)/val_gt_depths_std
@@ -278,8 +282,8 @@ print("DATA IMPORTED")
 with torch.autograd.detect_anomaly():
     iteration = 1
     increased = 0
-    patience = 10
-    train_batch_size = 4
+    patience = 500
+    train_batch_size = 32
     val_batch_size = 4
     val_every = 10
     train_enumeration = torch.arange(train_gt_depths.shape[0])
@@ -296,7 +300,14 @@ with torch.autograd.detect_anomaly():
             val_ind = random.sample(val_enumeration, val_batch_size)
             val_depths_pred = model(val_gt_depths[val_ind])
             val_loss = criterion(val_depths_pred, val_normalized_gt_depths[val_ind])
-            print("Iteration: %d, Train Loss: %f, Val Loss:, %f" %(iteration, train_loss.item(), val_loss.item()))
+            print("Iteration: %d, Train Loss: %f, Val Loss: %f" %(iteration, train_loss.item(), val_loss.item()))
+
+            # Unnormalize and output MSE loss (for interpretability)
+            train_depths_pred_unnorm = train_depths_pred*train_gt_depths_std+train_gt_depths_mean
+            train_MSE = criterion(train_depths_pred_unnorm, train_gt_depths[train_ind])
+            val_depths_pred_unnorm = val_depths_pred*val_gt_depths_std+val_gt_depths_mean
+            val_MSE = criterion(val_depths_pred_unnorm, val_gt_depths[val_ind])
+            print("               Train MSE: %f, Val MSE: %f" %(train_MSE,val_MSE))
             if iteration == 1 or val_loss < best_val_loss:
                 best_val_loss = val_loss
                 best_iteration = iteration
@@ -321,9 +332,9 @@ print("Best Iteration:", best_iteration)
 #test_depths_pred = test_depths_pred*test_gt_depths_std + test_gt_depths_mean
 #print("Test Depths predictions - Test GT:", (test_depths_pred-test_gt_depths))
 
-test_depths_pred = best_model(test_gt_depths[0, :, :])
-test_depths_pred = test_depths_pred*test_gt_depths_std + test_gt_depths_mean
-print("Test Depths predictions - Test GT:", (test_depths_pred-test_gt_depths[0, :, :]))
+#test_depths_pred = best_model(test_gt_depths[0, :, :])
+#test_depths_pred = test_depths_pred*test_gt_depths_std + test_gt_depths_mean
+#print("Test Depths predictions - Test GT:", (test_depths_pred-test_gt_depths[0, :, :]))
 
 ModFs_np = best_model.ModFs.cpu().detach().numpy()
 DemodFs_np = best_model.DemodFs.cpu().detach().numpy()

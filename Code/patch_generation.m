@@ -4,6 +4,9 @@ close all;
 % This script generages square patches of specified dimension
 % the resuling patch set will be of dimension (N, D, D)
 
+% Converts from m to mm
+depths = 1000 * depths;
+
 % Import depths.mat to the workspace
 N_in = length(depths(:,1,1));
 H_in = length(depths(1,:,1));

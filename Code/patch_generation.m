@@ -14,9 +14,9 @@ W_in = length(depths(1,1,:));
 
 % Select the patch dimension size and train, val, test split percentages.
 D = 64;
-train_percent = 0.70;
-val_percent = 0.15;
-test_percent = 0.15;
+train_percent = 0.90;
+val_percent = 0.05;
+test_percent = 0.05;
 
 N_train = floor(N_in * train_percent);
 N_val =  N_train + floor(N_in * val_percent);

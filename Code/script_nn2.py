@@ -19,7 +19,7 @@ import Decoding
 
 dtype = torch.float
 device = torch.device("cpu")
-use_gpu = False
+use_gpu = True
 if use_gpu:
     device = torch.device("cuda:0") # Uncomment this to run on GPU
 
@@ -266,11 +266,11 @@ class CNN(torch.nn.Module):
                     #nn.MaxPool2d(kernel_size=2, stride=2))
 
                 self.layer_same1 = nn.Sequential(
-                    nn.Conv2d(512, 1024, kernel_size=3, stride=1, padding=1),
-                    nn.BatchNorm2d(1024),
+                    nn.Conv2d(512, 512, kernel_size=3, stride=1, padding=1),
+                    nn.BatchNorm2d(512),
                     nn.ReLU())
                 self.layer_same2 = nn.Sequential(
-                    nn.Conv2d(1024, 512, kernel_size=3, stride=1, padding=1),
+                    nn.Conv2d(512, 512, kernel_size=3, stride=1, padding=1),
                     nn.BatchNorm2d(512),
                     nn.ReLU())
 
@@ -346,7 +346,7 @@ train = data['patches_train']
 val = data['patches_val']
 test = data['patches_test']
 
-train = torch.from_numpy(train)
+train = torch.from_numpy(train[:50000,:,:])
 val = torch.from_numpy(val)
 test = torch.from_numpy(test)
 
@@ -373,48 +373,24 @@ test_normalized_gt_depths = (test_gt_depths-test_gt_depths_mean)/test_gt_depths_
 print("DATA IMPORTED")
 
 with torch.autograd.detect_anomaly():
-    iteration = 1
+    iteration = 0
     increased = 0
-    patience = 500
-    train_batch_size = 3
-    val_batch_size = 2
-    val_every = 10
+    patience = 1000
+    train_batch_size = 8
+    val_batch_size = 1
+    val_every = 100
     val_number = val_gt_depths.shape[0]
     train_enumeration = torch.arange(train_gt_depths.shape[0])
     train_enumeration = train_enumeration.tolist()
-    while increased <= patience and iteration <=1:
+
+    while increased <= patience:
         train_ind = random.sample(train_enumeration, train_batch_size)
         # Forward pass: Compute predicted y by passing x to the model
         train_depths_pred = model(train_gt_depths[train_ind])
         # Compute and print loss
         train_loss = criterion(train_depths_pred, train_normalized_gt_depths[train_ind])
         train_depths_pred_unnorm = train_depths_pred*train_gt_depths_std+train_gt_depths_mean
-        train_MSE = criterion(train_depths_pred_unnorm, train_gt_depths[train_ind])
-        if iteration == 1 or iteration%val_every == 0:
-            val_loss = 0
-            val_MSE = 0
-            for b in range(val_number):
-                if b + val_batch_size < val_number:
-                    val_depths_pred = model(val_gt_depths[b:b+val_batch_size])
-                    val_loss = val_loss + criterion(val_depths_pred, val_normalized_gt_depths[b:b+val_batch_size])
-                    val_depths_pred_unnorm = val_depths_pred*val_gt_depths_std+val_gt_depths_mean
-                    val_MSE = val_MSE + criterion(val_depths_pred_unnorm, val_gt_depths[b:b+val_batch_size])
-                else:
-                    val_depths_pred = model(val_gt_depths[b:])
-                    val_loss = val_loss + criterion(val_depths_pred, val_normalized_gt_depths[b:])
-                    val_depths_pred_unnorm = val_depths_pred*val_gt_depths_std+val_gt_depths_mean
-                    val_MSE = val_MSE + criterion(val_depths_pred_unnorm, val_gt_depths[b:])
-                b = b + val_batch_size
-            print("Iteration: %d, Train Loss: %f, Val Loss: %f" %(iteration, train_loss.item(), val_loss.item()))
-            # Unnormalize and output MSE loss (for interpretability)
-            print("Train MSE: %f, Val MSE: %f" %(train_MSE,val_MSE))
-            if iteration == 1 or val_loss < best_val_loss:
-                best_val_loss = val_loss
-                best_iteration = iteration
-                best_model = model
-                increased = 0
-            else:
-                increased = increased + 1
+        train_MSE = criterion(train_depths_pred_unnorm, train_gt_depths[train_ind])        
         iteration = iteration + 1
 
         # Zero gradients, perform a backward pass, and update the weights.
@@ -422,37 +398,72 @@ with torch.autograd.detect_anomaly():
         train_loss.backward(retain_graph=True)
         optimizer.step()
         if use_gpu:
+            #print("Memory before freeing cache:", torch.cuda.memory_allocated(device))
             torch.cuda.empty_cache()
+            #print("Memory after freeing cache: ", torch.cuda.memory_allocated(device))
+
+        if iteration == 1 or iteration%val_every == 0:
+            with torch.no_grad():
+                val_loss = 0
+                val_MSE = 0
+                for b in range(val_number):
+                    if b + val_batch_size < val_number:
+                        val_depths_pred = model(val_gt_depths[b:b+val_batch_size])
+                        val_loss = val_loss + criterion(val_depths_pred, val_normalized_gt_depths[b:b+val_batch_size])
+                        val_depths_pred_unnorm = val_depths_pred*val_gt_depths_std+val_gt_depths_mean
+                        val_MSE = val_MSE + criterion(val_depths_pred_unnorm, val_gt_depths[b:b+val_batch_size])
+                    else:
+                        val_depths_pred = model(val_gt_depths[b:])
+                        val_loss = val_loss + criterion(val_depths_pred, val_normalized_gt_depths[b:])
+                        val_depths_pred_unnorm = val_depths_pred*val_gt_depths_std+val_gt_depths_mean
+                        val_MSE = val_MSE + criterion(val_depths_pred_unnorm, val_gt_depths[b:])
+                    b = b + val_batch_size
+                    if use_gpu:
+                        torch.cuda.empty_cache()
+                val_loss /= val_number # mean loss
+                val_MSE /= val_number # mean MSE 
+
+                print("Iteration: %d, Train Loss: %f, Val Loss: %f" %(iteration, train_loss.item(), val_loss.item()))
+                # Unnormalize and output MSE loss (for interpretability)
+                print("Train MSE: %f, Val MSE: %f" %(train_MSE,val_MSE))
+                if iteration == 1 or val_loss < best_val_loss:
+                    best_val_loss = val_loss
+                    best_iteration = iteration
+                    best_model = model
+                    increased = 0
+                else:
+                    increased = increased + 1
 
 print("DONE TRAINING")
 print("Best Validation Loss:", best_val_loss.item())
 print("Best Iteration:", best_iteration)
 
-# Needs to be implemented in batches in order to work
-#test_depths_pred = best_model(test_gt_depths)
-#test_depths_pred = test_depths_pred*test_gt_depths_std + test_gt_depths_mean
-#print("Test Depths predictions - Test GT:", (test_depths_pred-test_gt_depths))
-test_loss = 0
-test_MSE = 0
-test_batch_size = 2
-test_number = test_gt_depths.shape[0]
-for b in range(test_number):
-    if b + test_batch_size < test_number:
-        test_depths_pred = best_model(test_gt_depths[b:b+test_number])
-        test_loss = test_loss + criterion(test_depths_pred, test_normalized_gt_depths[b:b+test_number])
-        test_depths_pred_unnorm = test_depths_pred*test_gt_depths_std+test_gt_depths_mean
-        test_MSE = test_MSE + criterion(test_depths_pred_unnorm, test_gt_depths[b:b+test_number])
-    else:
-        test_depths_pred = best_model(test_gt_depths[b:])
-        test_loss = test_loss + criterion(test_depths_pred, test_normalized_gt_depths[b:])
-        test_depths_pred_unnorm = test_depths_pred*test_gt_depths_std+test_gt_depths_mean
-        test_MSE = test_MSE + criterion(test_depths_pred_unnorm, test_gt_depths[b:])
-    b = b + test_batch_size
+with torch.no_grad():
+    test_loss = 0
+    test_MSE = 0
+    test_batch_size = 1
+    test_number = test_gt_depths.shape[0]
+    for b in range(test_number):
+        if b + test_batch_size < test_number:
+            test_depths_pred = best_model(test_gt_depths[b:b+test_batch_size])
+            test_loss = test_loss + criterion(test_depths_pred, test_normalized_gt_depths[b:b+test_batch_size])
+            test_depths_pred_unnorm = test_depths_pred*test_gt_depths_std+test_gt_depths_mean
+            test_MSE = test_MSE + criterion(test_depths_pred_unnorm, test_gt_depths[b:b+test_batch_size])
+        else:
+            test_depths_pred = best_model(test_gt_depths[b:])
+            test_loss = test_loss + criterion(test_depths_pred, test_normalized_gt_depths[b:])
+            test_depths_pred_unnorm = test_depths_pred*test_gt_depths_std+test_gt_depths_mean
+            test_MSE = test_MSE + criterion(test_depths_pred_unnorm, test_gt_depths[b:])
+        b = b + test_batch_size
+        if use_gpu:
+            torch.cuda.empty_cache()
+    test_loss /= test_number # mean loss
+    test_MSE /= test_number # mean MSE
 
 print("Test Loss: %f, Test MSE: %f" %(test_loss.item(), test_MSE))
 
-ModFs_np = best_model.ModFs.cpu().detach().numpy()
-DemodFs_np = best_model.DemodFs.cpu().detach().numpy()
-CorrFs = Utils.GetCorrelationFunctions(best_model.ModFs,best_model.DemodFs, device=device)
-CorrFs_np = CorrFs.cpu().detach().numpy()
-np.savez('coding_functions.npz', ModFs=ModFs_np, DemodFs=DemodFs_np, CorrFs=CorrFs_np)
+#ModFs_np = best_model.ModFs.cpu().detach().numpy()
+#DemodFs_np = best_model.DemodFs.cpu().detach().numpy()
+#CorrFs = Utils.GetCorrelationFunctions(best_model.ModFs,best_model.DemodFs, device=device)
+#CorrFs_np = CorrFs.cpu().detach().numpy()
+#np.savez('coding_functions.npz', ModFs=ModFs_np, DemodFs=DemodFs_np, CorrFs=CorrFs_np)

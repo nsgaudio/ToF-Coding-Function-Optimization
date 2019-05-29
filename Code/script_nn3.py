@@ -9,6 +9,7 @@ import torch.nn.functional as F  # a lower level (compared to torch.nn) interfac
 import math
 from scipy.io import loadmat
 import random
+from random import randint
 
 # Local imports
 import CodingFunctions
@@ -116,7 +117,6 @@ class CNN(torch.nn.Module):
         #for i in range(gt_depths.detach().numpy().size):
         #    BVals[i,:] = Utils.GetClippedBSamples(nSamples=1,BMean=BVals[i,:],BVar=noiseVar[i,:])
 
-
         # Normalize BVals
         BVals_mean = torch.mean(BVals)
         BVals_std = torch.std(BVals)
@@ -135,17 +135,14 @@ class CNN(torch.nn.Module):
                     nn.Conv2d(self.K, 32, kernel_size=3, stride=2, padding=1),
                     nn.BatchNorm2d(32),
                     nn.ReLU())
-                    #nn.MaxPool2d(kernel_size=2, stride=2))
                 self.layer_down2 = nn.Sequential(
                     nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1),
                     nn.BatchNorm2d(64),
                     nn.ReLU())
-                    #nn.MaxPool2d(kernel_size=2, stride=2))
                 self.layer_down3 = nn.Sequential(
                     nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1),
                     nn.BatchNorm2d(128),
                     nn.ReLU())
-                    #nn.MaxPool2d(kernel_size=2, stride=2))
 
                 self.layer_same1 = nn.Sequential(
                     nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1),
@@ -153,20 +150,26 @@ class CNN(torch.nn.Module):
                     nn.ReLU())
 
                 self.layer_up1 = nn.Sequential(
-                    #nn.Upsample(scale_factor=2, mode='nearest'),
                     nn.BatchNorm2d(128),
                     nn.ConvTranspose2d(128, 64, kernel_size=4, stride=2, padding=1),
                     nn.ReLU())
                 self.layer_up2 = nn.Sequential(
-                    #nn.Upsample(scale_factor=2, mode='nearest'),
                     nn.BatchNorm2d(64),
                     nn.ConvTranspose2d(64, 32, kernel_size=4, stride=2, padding=1),
                     nn.ReLU())
                 self.layer_up3 = nn.Sequential(
-                    #nn.Upsample(scale_factor=2, mode='nearest'),
                     nn.BatchNorm2d(32),
-                    nn.ConvTranspose2d(32, 1, kernel_size=4, stride=2, padding=1))
-                    #nn.Tanh())
+                    nn.ConvTranspose2d(32, 1, kernel_size=4, stride=2, padding=1),
+                    nn.ReLU())
+
+                self.layer_skip_nonlinearity = nn.Sequential(
+                    nn.Conv2d(self.K, 32, kernel_size=1, stride=1, padding=0),
+                    nn.BatchNorm2d(32),
+                    nn.ReLU())
+
+                self.layer_combine = nn.Sequential(
+                    nn.Conv2d(33,1, kernel_size=1, stride=1, padding=0))
+               
             else:
                 # Down Convolution
                 x = self.layer_down1(BVals)
@@ -178,6 +181,84 @@ class CNN(torch.nn.Module):
                 x = self.layer_up1(x)
                 x = self.layer_up2(x)
                 x = self.layer_up3(x)
+                # Skip layer and combination with CNN
+                x_skip = self.layer_skip_nonlinearity(BVals)
+                x = self.layer_combine(torch.cat([x, x_skip], 1))
+                return x
+
+        if architecture == 'deep_sequential':
+            if init == True:
+                self.layer_down1 = nn.Sequential(
+                    nn.Conv2d(self.K, 32, kernel_size=3, stride=2, padding=1),
+                    nn.BatchNorm2d(32),
+                    nn.ReLU())
+                self.layer_down2 = nn.Sequential(
+                    nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1),
+                    nn.BatchNorm2d(64),
+                    nn.ReLU())
+                self.layer_down3 = nn.Sequential(
+                    nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1),
+                    nn.BatchNorm2d(128),
+                    nn.ReLU())
+                self.layer_down4 = nn.Sequential(
+                    nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=1),
+                    nn.BatchNorm2d(256),
+                    nn.ReLU())
+                self.layer_down5 = nn.Sequential(
+                    nn.Conv2d(256, 512, kernel_size=3, stride=2, padding=1),
+                    nn.BatchNorm2d(512),
+                    nn.ReLU())
+
+                self.layer_same1 = nn.Sequential(
+                    nn.Conv2d(512, 512, kernel_size=3, stride=1, padding=1),
+                    nn.BatchNorm2d(512),
+                    nn.ReLU())
+                self.layer_same2 = nn.Sequential(
+                    nn.Conv2d(512, 512, kernel_size=3, stride=1, padding=1),
+                    nn.BatchNorm2d(512),
+                    nn.ReLU())
+                self.layer_same3 = nn.Sequential(
+                    nn.Conv2d(512, 512, kernel_size=3, stride=1, padding=1),
+                    nn.BatchNorm2d(512),
+                    nn.ReLU())
+
+                self.layer_up1 = nn.Sequential(
+                    nn.BatchNorm2d(512),
+                    nn.ConvTranspose2d(512, 256, kernel_size=4, stride=2, padding=1),
+                    nn.ReLU())
+                self.layer_up2 = nn.Sequential(
+                    nn.BatchNorm2d(256),
+                    nn.ConvTranspose2d(256, 128, kernel_size=4, stride=2, padding=1),
+                    nn.ReLU())
+                self.layer_up3 = nn.Sequential(
+                    nn.BatchNorm2d(128),
+                    nn.ConvTranspose2d(128, 64, kernel_size=4, stride=2, padding=1),
+                    nn.ReLU())
+                self.layer_up4 = nn.Sequential(
+                    nn.BatchNorm2d(64),
+                    nn.ConvTranspose2d(64, 32, kernel_size=4, stride=2, padding=1),
+                    nn.ReLU())
+                self.layer_up5 = nn.Sequential(
+                    nn.BatchNorm2d(32),
+                    nn.ConvTranspose2d(32, 1, kernel_size=4, stride=2, padding=1))
+                    #nn.Tanh())
+            else:
+                # Down Convolution
+                x = self.layer_down1(BVals)
+                x = self.layer_down2(x)
+                x = self.layer_down3(x)
+                x = self.layer_down4(x)
+                x = self.layer_down5(x)
+                # Same size Convolution
+                x = self.layer_same1(x)
+                x = self.layer_same2(x)
+                x = self.layer_same3(x)
+                # Up Convolution
+                x = self.layer_up1(x)
+                x = self.layer_up2(x)
+                x = self.layer_up3(x)
+                x = self.layer_up4(x)
+                x = self.layer_up5(x)
                 return x
 
         if architecture == 'skip_connection':
@@ -330,7 +411,7 @@ class CNN(torch.nn.Module):
 
 # Construct our model by instantiating the class defined above
 # Choose from: 'sequential', 'skip_connection'
-model = CNN('skip_connection')
+model = CNN('sequential')
 if use_gpu:
     model.cuda()
 print("MODEL MADE")
@@ -338,15 +419,20 @@ print("MODEL MADE")
 # in the SGD constructor will contain the learnable parameters of the two
 # nn.Linear modules which are members of the model.
 criterion = torch.nn.MSELoss(reduction='mean')
-optimizer = optim.Adam(model.parameters(), lr = 1e-4)
+parameters = list(model.parameters())
+parameters.append(model.ModFs)
+parameters.append(model.DemodFs)
+optimizer = optim.Adam(parameters, lr = 3e-4)
 
 # Load data
 data = loadmat('patches_64.mat')
+#data = loadmat('patches_448_576.mat')
 train = data['patches_train']
 val = data['patches_val']
 test = data['patches_test']
 
-#val = torch.from_numpy(train[50000:50500,:,:])
+#val = torch.from_numpy(train[50000:51000,:,:])
+#test = torch.from_numpy(train[70000:71000,:,:])
 train = torch.from_numpy(train[:50000,:,:])
 val = torch.from_numpy(val)
 test = torch.from_numpy(test)
@@ -356,38 +442,32 @@ val_gt_depths = val.float().to(device).requires_grad_(False)
 test_gt_depths = test.float().to(device).requires_grad_(False)
 
 train_gt_depths_mean = torch.mean(train_gt_depths)
-val_gt_depths_mean = torch.mean(val_gt_depths)
-test_gt_depths_mean = torch.mean(test_gt_depths)
-print("Train mean:", train_gt_depths_mean.item())
-print("Val mean:", val_gt_depths_mean.item())
-
 train_gt_depths_std = torch.std(train_gt_depths)
-val_gt_depths_std = torch.std(val_gt_depths)
-test_gt_depths_std = torch.std(test_gt_depths)
-print("Train std:", train_gt_depths_std.item())
-print("Val std:", val_gt_depths_std.item())
 
 train_normalized_gt_depths = (train_gt_depths-train_gt_depths_mean)/train_gt_depths_std
-val_normalized_gt_depths = (val_gt_depths-val_gt_depths_mean)/val_gt_depths_std
-test_normalized_gt_depths = (test_gt_depths-test_gt_depths_mean)/test_gt_depths_std
+val_normalized_gt_depths = (val_gt_depths-train_gt_depths_mean)/train_gt_depths_std
+test_normalized_gt_depths = (test_gt_depths-train_gt_depths_mean)/train_gt_depths_std
 
 print("DATA IMPORTED")
 
 with torch.autograd.detect_anomaly():
     iteration = 0
     increased = 0
-    patience = 1000
+    patience = 50
     train_batch_size = 32
-    val_every = 100
+    val_every = 50
     train_enumeration = torch.arange(train_gt_depths.shape[0])
     train_enumeration = train_enumeration.tolist()
+    train_loss_history = []
+    val_loss_history = []
 
     while increased <= patience:
         train_ind = random.sample(train_enumeration, train_batch_size)
         # Forward pass: Compute predicted y by passing x to the model
-        train_depths_pred = model(train_gt_depths[train_ind])
+        train_depths_pred = model(train_gt_depths[train_ind,:,:])
         # Compute and print loss
         train_loss = criterion(train_depths_pred, train_normalized_gt_depths[train_ind])
+        train_loss_history.append(train_loss.item())
         train_depths_pred_unnorm = train_depths_pred*train_gt_depths_std+train_gt_depths_mean
         train_MSE = criterion(train_depths_pred_unnorm, train_gt_depths[train_ind])        
         iteration = iteration + 1
@@ -396,6 +476,11 @@ with torch.autograd.detect_anomaly():
         optimizer.zero_grad()
         train_loss.backward(retain_graph=True)
         optimizer.step()
+
+        # Clamp ModFs and DemodFs to physically possible values
+        model.ModFs.data.clamp_(min=0)
+        model.DemodFs.data.clamp_(min=0,max=1)
+
         if use_gpu:
             #print("Memory before freeing cache:", torch.cuda.memory_allocated(device))
             torch.cuda.empty_cache()
@@ -404,13 +489,12 @@ with torch.autograd.detect_anomaly():
         if iteration == 1 or iteration%val_every == 0:
             with torch.no_grad():
                 val_depths_pred = model(val_gt_depths)
-                val_loss = val_loss + criterion(val_depths_pred, val_normalized_gt_depths)
-                val_depths_pred_unnorm = val_depths_pred*val_gt_depths_std+val_gt_depths_mean
-                val_MSE = val_MSE + criterion(val_depths_pred_unnorm, val_gt_depths)
+                val_loss = criterion(val_depths_pred, val_normalized_gt_depths)
+                val_loss_history.append(val_loss.item())
+                val_depths_pred_unnorm = val_depths_pred*train_gt_depths_std+train_gt_depths_mean
+                val_MSE = criterion(val_depths_pred_unnorm, val_gt_depths)
 
-            print("Iteration: %d, Train Loss: %f, Val Loss: %f" %(iteration, train_loss.item(), val_loss.item()))
-            # Unnormalize and output MSE loss (for interpretability)
-            print("Train MSE: %f, Val MSE: %f" %(train_MSE,val_MSE))
+            print("Iteration: %d, Train Loss: %f, Val Loss: %f, Train MSE: %f, Val MSE: %f" %(iteration, train_loss.item(), val_loss.item(), train_MSE, val_MSE))
             if iteration == 1 or val_loss < best_val_loss:
                 best_val_loss = val_loss
                 best_iteration = iteration
@@ -423,11 +507,77 @@ print("DONE TRAINING")
 print("Best Validation Loss:", best_val_loss.item())
 print("Best Iteration:", best_iteration)
 
-with torch.no_grad():
-    test_depths_pred = best_model(test_gt_depths[b:b+test_batch_size])
-    test_loss = test_loss + criterion(test_depths_pred, test_normalized_gt_depths[b:b+test_batch_size])
-    test_depths_pred_unnorm = test_depths_pred*test_gt_depths_std+test_gt_depths_mean
-    test_MSE = test_MSE + criterion(test_depths_pred_unnorm, test_gt_depths[b:b+test_batch_size])
+# Plot training and validation loss over iterations
+fig, ax = plt.subplots()
+ax.plot(np.arange(len(train_loss_history)), train_loss_history,  label='training loss')
+ax.plot(np.arange(0,len(val_loss_history)*val_every,val_every), val_loss_history, label='validation loss')
+ax.legend(loc='best')
+plt.show(block=True)
 
+# Loss on test set
+with torch.no_grad():
+    test_depths_pred = best_model(test_gt_depths)
+    test_loss = criterion(test_depths_pred, test_normalized_gt_depths)
+    test_depths_pred_unnorm = test_depths_pred*train_gt_depths_std+train_gt_depths_mean
+    test_MSE = criterion(test_depths_pred_unnorm, test_gt_depths)
+print("Evaluate best model on test set:")
 print("Test Loss: %f, Test MSE: %f" %(test_loss.item(), test_MSE))
 
+# Show two example depth maps from test set
+num = test_depths_pred_unnorm.shape[0]
+n1 = randint(0, num-1)
+im1 = test_depths_pred_unnorm[n1,:,:].cpu().numpy()
+im1_gt = test_gt_depths[n1,:,:].cpu().numpy()
+im1_max = np.amax(im1_gt)
+im1_min = np.amin(im1_gt)
+n2 = randint(0, num-1)
+im2 = test_depths_pred_unnorm[n2,:,:].cpu().numpy()
+im2_gt = test_gt_depths[n2,:,:].cpu().numpy()
+im2_max = np.amax(im2_gt)
+im2_min = np.amin(im2_gt)
+
+fig = plt.figure()
+plt.subplot(1, 3, 1)
+plt.imshow(im1_gt)
+plt.set_cmap('jet')
+plt.clim(im1_min,im1_max)
+plt.colorbar()
+plt.subplot(1, 3, 2)
+plt.imshow(im1)
+plt.set_cmap('jet')
+plt.clim(im1_min,im1_max)
+plt.colorbar()
+plt.subplot(1, 3, 3)
+plt.imshow(im1_gt-im1)
+plt.set_cmap('bwr')
+plt.clim(-500,500)
+plt.colorbar()
+plt.show(block=True)
+
+fig = plt.figure()
+plt.subplot(1, 3, 1)
+plt.imshow(im2_gt)
+plt.set_cmap('jet')
+plt.clim(im2_min,im2_max)
+plt.colorbar()
+plt.subplot(1, 3, 2)
+plt.imshow(im2)
+plt.set_cmap('jet')
+plt.clim(im2_min,im2_max)
+plt.colorbar()
+plt.subplot(1, 3, 3)
+plt.imshow(im2_gt-im2)
+plt.set_cmap('bwr')
+plt.clim(-500,500)
+plt.colorbar()
+plt.show(block=True)
+
+# Save coding functions
+ModFs_scaled = Utils.ScaleMod(model.ModFs, device=device, tau=model.tauMin, pAveSource=model.pAveSourcePerPixel)
+
+UtilsPlot.PlotCodingScheme(model.ModFs,model.DemodFs,device)
+ModFs_np = model.ModFs.cpu().detach().numpy()
+DemodFs_np = model.DemodFs.cpu().detach().numpy()
+CorrFs = Utils.GetCorrelationFunctions(model.ModFs,model.DemodFs,device=device)
+CorrFs_np = CorrFs.cpu().detach().numpy()
+np.savez('coding_functions.npz', ModFs=ModFs_np, DemodFs=DemodFs_np, CorrFs=CorrFs_np)

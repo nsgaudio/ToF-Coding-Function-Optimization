@@ -4,7 +4,7 @@ close all;
 % This script generages square patches of specified dimension
 % the resuling patch set will be of dimension (N, D, D)
 
-depths_new = depths(:, 16+1:end-16, 32+1:end-32);
+depths_new = depths(:, 10+1:end-22, 32+1:end-32);
 
 % Converts from m to mm
 depths_new = 1000 * depths_new;
@@ -27,28 +27,28 @@ N_test =  N_val + floor(N_in * test_percent);
 patches_val = depths_new(N_train+1:N_val, :, :);
 patches_test = depths_new(N_val+1:N_test, :, :);
 
-patches_train = depths_new(1:N_train, :, :);
-save('patches_448_576.mat', 'patches_train', 'patches_val', 'patches_test')
+%patches_train = depths_new(1:N_train, :, :);
+%save('patches_448_576.mat', 'patches_train', 'patches_val', 'patches_test')
 
-% row_patches =  floor(H_in/D);
-% col_patches = floor(W_in/D);
-% N = N_train * row_patches * col_patches;
-% 
-% patches_train = single(zeros(N, D, D));
-% 
-% ind = 1;
-% for n = 1:N_train
-%     for r = 1:row_patches
-%         for c = 1:col_patches
-%             patches_train(ind, :, :) = depths_new(n, (r-1)*D+1:r*D, (c-1)*D+1:c*D);
-%             ind = ind + 1; 
-%         end
-%     end
-% end
-% 
-% patches_train = patches_train(randperm(length(patches_train(:, 1, 1))), :, :);
-% filename = ['patches_', num2str(D), '.mat'];
-% save(filename, 'patches_train', 'patches_val', 'patches_test')
+row_patches =  floor(H_in/D);
+col_patches = floor(W_in/D);
+N = N_train * row_patches * col_patches;
+
+patches_train = single(zeros(N, D, D));
+
+ind = 1;
+for n = 1:N_train
+    for r = 1:row_patches
+        for c = 1:col_patches
+            patches_train(ind, :, :) = depths_new(n, (r-1)*D+1:r*D, (c-1)*D+1:c*D);
+            ind = ind + 1; 
+        end
+    end
+end
+
+patches_train = patches_train(randperm(length(patches_train(:, 1, 1))), :, :);
+filename = ['patches_', num2str(D), '.mat'];
+save(filename, 'patches_train', 'patches_val', 'patches_test')
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%TEST SCRIPT%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

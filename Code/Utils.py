@@ -83,7 +83,7 @@ def ApplyKPhaseShifts(x, shifts):
 
 	return x
 
-def complex_conj_multiplication(t1, t2, device):
+def complex_conj_multiplication(t1, t2):
 	"""Multiplies the complex conjugate of tensor t1 with tensor t2
 
 	Args:
@@ -117,7 +117,7 @@ def GetCorrelationFunctions(ModFs, DemodFs, device, dt=None):
 	CorrFs = torch.zeros(ModFs.shape,device=device)
 	#### Get correlation functions
 	for i in range(0,K):
-		temp = complex_conj_multiplication(torch.rfft(ModFs[:,i],1), torch.rfft(DemodFs[:,i],1), device=device)
+		temp = complex_conj_multiplication(torch.rfft(ModFs[:,i],1), torch.rfft(DemodFs[:,i],1))
 		CorrFs[:,i] = torch.irfft(temp,1)[0:N]
 	#### Scale by dt
 	CorrFs_scaled = CorrFs*dt

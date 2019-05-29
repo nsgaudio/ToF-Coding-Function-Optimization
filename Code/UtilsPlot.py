@@ -109,9 +109,9 @@ def PlotCodingScheme(ModFs, DemodFs, device, tau=1):
 	## Plot ObjCorrF first so that stars don't cover the corrFs.
 	for i in range(0, K):
 		labelInfo = str(i)
-		axarr[3*i + 0].plot(t.numpy(), ModFs[:,i].detach().numpy(), label='Md-'+labelInfo,linewidth=2, color=colors[i])
-		axarr[3*i + 1].plot(t.numpy(), DemodFs[:,i].detach().numpy(), label='Dmd-'+labelInfo,linewidth=2, color=colors[i])
-		axarr[3*i + 2].plot(phase.numpy(), CorrFs[:,i].detach().numpy(), label='Crr-'+labelInfo,linewidth=2, color=colors[i])
+		axarr[3*i + 0].plot(t.numpy(), ModFs[:,i].cpu().detach().numpy(), label='Md-'+labelInfo,linewidth=2, color=colors[i])
+		axarr[3*i + 1].plot(t.numpy(), DemodFs[:,i].cpu().detach().numpy(), label='Dmd-'+labelInfo,linewidth=2, color=colors[i])
+		axarr[3*i + 2].plot(phase.numpy(), CorrFs[:,i].cpu().detach().numpy(), label='Crr-'+labelInfo,linewidth=2, color=colors[i])
 		axarr[3*i + 0].plot(t.numpy(), avgPower, '--', label='AvgPower', linewidth=3, color=colors[i])
 		## Set axis labels
 		axarr[3*i + 0].set_xlabel('Time')
@@ -130,7 +130,7 @@ def PlotCodingScheme(ModFs, DemodFs, device, tau=1):
 	# axarr[1].set_ylim([0,1.2*np.max(DemodFs)])
 	# axarr[2].set_ylim([0,1.2*np.max(CorrFs)])	
 
-	plt.savefig('test.png')
+	plt.show(block=True)
 
 	return (fig, axarr)
 

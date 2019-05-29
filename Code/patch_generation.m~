@@ -113,12 +113,14 @@ N_train = floor(N_in * train_percent);
 N_val =  N_train + floor(N_in * val_percent);
 N_test =  N_val + floor(N_in * test_percent);
 
+patches_val = depths_new(N_train+1:N_val, :, :);
+patches_test = depths_new(N_val+1:N_test, :, :);
+
 row_patches =  floor(H_in/D);
 col_patches = floor(W_in/D);
 
 patches_train = single(zeros(N_train * row_patches * col_patches, D, D));
-patches_val = single(zeros((N_val - N_train) * row_patches * col_patches, D, D));
-patches_test = single(zeros((N_test - N_val) * row_patches * col_patches, D, D));
+patches_val = single(zeros(N_train * row_patches * col_patches, D, D));
 
 ind = 1;
 for n = 1:N_train
@@ -130,30 +132,8 @@ for n = 1:N_train
     end
 end
 
-ind = 1;
-for n = N_train+1:N_val
-    for r = 1:row_patches
-        for c = 1:col_patches
-            patches_val(ind, :, :) = depths_new(n, (r-1)*D+1:r*D, (c-1)*D+1:c*D);
-            ind = ind + 1; 
-        end
-    end
-end
-
-ind = 1;
-for n = N_val+1:N_test
-    for r = 1:row_patches
-        for c = 1:col_patches
-            patches_test(ind, :, :) = depths_new(n, (r-1)*D+1:r*D, (c-1)*D+1:c*D);
-            ind = ind + 1; 
-        end
-    end
-end
-
 patches_train = patches_train(randperm(length(patches_train(:, 1, 1))), :, :);
-patches_val = patches_val(randperm(length(patches_val(:, 1, 1))), :, :);
-patches_test = patches_test(randperm(length(patches_test(:, 1, 1))), :, :);
-filename = ['patches_train_test_val_', num2str(D), '.mat'];
+filename = ['patches_', num2str(D), '.mat'];
 save(filename, 'patches_train', 'patches_val', 'patches_test');
 
 

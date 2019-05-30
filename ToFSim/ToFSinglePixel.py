@@ -54,8 +54,8 @@ meanBeta = 1e-4 # Avg fraction of photons reflected from a scene points back to 
 gamma = 1./(meanBeta*T*(pAveAmbientPerPixel+pAveSourcePerPixel)) # Camera gain. Ensures all values are between 0-1.
 
 #### Set list of depths/depth map
-depths = np.load('sample_pic.npy').astype(int) #np.round(np.random.rand(5)*dMax).astype(int)
-#depths = np.arange(50,100,10)
+#depths = np.load('sample_pic.npy').astype(int) #np.round(np.random.rand(5)*dMax).astype(int)
+depths = np.arange(4000,5000,100)
 print("True Depths: {}".format(depths))
 
 #################### Simulation

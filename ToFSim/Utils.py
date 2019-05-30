@@ -159,5 +159,17 @@ def GetClippedBSamples(nSamples, BMean, BVar):
 	BSamples[BSamples<0]=lower
 	BSamples[BSamples>1]=upper
 
+	#print(BVar.shape)
+	#temp = np.diag(np.sqrt(BVar))
+	#randnum = np.random.randn(BVar.size)
+	#print(temp)
+	#print(randnum)
+	#print(temp.shape)
+	#BSamples1 = BMean + np.dot(randnum,temp)
+	#BSamples2 = np.random.multivariate_normal(BMean, np.diag(BVar), nSamples)
+	#print('MultNorm',BSamples-BMean)
+	#print('randn',BSamples1-BMean)
+	#print('NP MultNorm',BSamples2-BMean)
+	#print(' ')
 
 	return (BSamples)

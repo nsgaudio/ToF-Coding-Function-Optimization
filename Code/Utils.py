@@ -164,7 +164,7 @@ def ComputeBrightnessVals(ModFs, DemodFs, CorrFs, depths=None, pAmbient=0, beta=
 	BVals = BVals[depths,:]
 	return (BVals)
 
-def GetClippedBSamples(nSamples, BMean, BVar):
+def GetClippedBSamples(nSamples, BMean, BVar, device):
 	"""GetClippedBSamples: Draw N brightness samples from the truncated multivariate gaussian dist 
 	with mean BVal and Covariance Sigma=diag(NoiseVar)
 	Args:
@@ -176,11 +176,10 @@ def GetClippedBSamples(nSamples, BMean, BVar):
 	"""
 	K = BMean.size
 	lower, upper = 0, 1
-	MultNormDist = stats.multivariate_normal(mean=BMean,cov=np.diag(BVar))
 
-	BSamples = MultNormDist.rvs(nSamples)
+	noise = torch.randn(BVar.size(),device=device)*torch.sqrt(BVar) 
+	BSamples = BMean + noise
 	BSamples[BSamples<0]=lower
 	BSamples[BSamples>1]=upper
-
 
 	return (BSamples)

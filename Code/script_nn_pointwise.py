@@ -434,14 +434,14 @@ with torch.autograd.detect_anomaly():
     iteration = 0
     increased = 0
     patience = 50
-    train_batch_size = 32
-    val_every = 50
+    train_batch_size = 64
+    val_every = 100
     train_enumeration = torch.arange(train_gt_depths.shape[0])
     train_enumeration = train_enumeration.tolist()
     train_loss_history = []
     val_loss_history = []
 
-    while increased <= patience and iteration<100:
+    while increased <= patience:
         train_ind = random.sample(train_enumeration, train_batch_size)
         # Forward pass: Compute predicted y by passing x to the model
         train_depths_pred = model(train_gt_depths[train_ind,:,:])
@@ -503,16 +503,32 @@ with torch.no_grad():
 print("Evaluate best model on test set:")
 print("Test Loss: %f, Test MSE: %f" %(test_loss.item(), test_MSE))
 
-# Show two example depth maps from test set
-num = test_depths_pred_unnorm.shape[0]
+# Stitch test patches back together and show two example depth maps from test set
+D = 64
+row_patch_num = 7
+col_patch_num = 9
+patch_num_scene = row_patch_num * col_patch_num
+test_depths_pred_unnorm = test_depths_pred_unnorm.cpu().numpy()
+test_gt_depths = test_gt_depths.cpu().numpy()
+num = np.floor(test_depths_pred_unnorm.shape[0] / patch_num_scene)
 n1 = randint(0, num-1)
-im1 = test_depths_pred_unnorm[n1,:,:].cpu().numpy()
-im1_gt = test_gt_depths[n1,:,:].cpu().numpy()
+n2 = randint(0, num-1)
+im1 = np.zeros((row_patch_num*D, col_patch_num*D))
+im1_gt = np.zeros((row_patch_num*D, col_patch_num*D))
+im2 = np.zeros((row_patch_num*D, col_patch_num*D))
+im2_gt = np.zeros((row_patch_num*D, col_patch_num*D))
+ind1 = int(patch_num_scene * n1)
+ind2 = int(patch_num_scene * n2)
+for r in range(row_patch_num):
+    for c in range(col_patch_num):
+        im1[r*D:(r+1)*D, c*D:(c+1)*D] = np.squeeze(test_depths_pred_unnorm[ind1, :, :])
+        im1_gt[r*D:(r+1)*D, c*D:(c+1)*D] = np.squeeze(test_gt_depths[ind1, :, :])
+        im2[r*D:(r+1)*D, c*D:(c+1)*D] = np.squeeze(test_depths_pred_unnorm[ind2, :, :])
+        im2_gt[r*D:(r+1)*D, c*D:(c+1)*D] = np.squeeze(test_gt_depths[ind2, :, :])
+        ind1 = ind1 + 1
+        ind2 = ind2 + 1
 im1_max = np.amax(im1_gt)
 im1_min = np.amin(im1_gt)
-n2 = randint(0, num-1)
-im2 = test_depths_pred_unnorm[n2,:,:].cpu().numpy()
-im2_gt = test_gt_depths[n2,:,:].cpu().numpy()
 im2_max = np.amax(im2_gt)
 im2_min = np.amin(im2_gt)
 
@@ -560,4 +576,5 @@ ModFs_np = model.ModFs.cpu().detach().numpy()
 DemodFs_np = model.DemodFs.cpu().detach().numpy()
 CorrFs = Utils.GetCorrelationFunctions(model.ModFs,model.DemodFs,device=device)
 CorrFs_np = CorrFs.cpu().detach().numpy()
-np.savez('coding_functions.npz', ModFs=ModFs_np, DemodFs=DemodFs_np, CorrFs=CorrFs_np)
+np.savez('coding_functions_nn_point.npz', ModFs=ModFs_np, DemodFs=DemodFs_np, CorrFs=CorrFs_np)
+

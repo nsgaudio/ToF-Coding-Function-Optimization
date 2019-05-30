@@ -151,8 +151,8 @@ for n = N_val+1:N_test
 end
 
 patches_train = patches_train(randperm(length(patches_train(:, 1, 1))), :, :);
-patches_val = patches_val(randperm(length(patches_val(:, 1, 1))), :, :);
-patches_test = patches_test(randperm(length(patches_test(:, 1, 1))), :, :);
+% patches_val = patches_val(randperm(length(patches_val(:, 1, 1))), :, :);
+% patches_test = patches_test(randperm(length(patches_test(:, 1, 1))), :, :);
 filename = ['patches_train_test_val_', num2str(D), '.mat'];
 save(filename, 'patches_train', 'patches_val', 'patches_test');
 

@@ -89,25 +89,22 @@ class Pixelwise(torch.nn.Module):
 
         #################### Simulation
         ## Set area under the curve of outgoing ModF to the totalEnergy
-        ModFs_scaled = Utils.ScaleMod(self.ModFs, tau=self.tauMin, pAveSource=self.pAveSourcePerPixel)
-        # Clip the demodulation functions to [0,1]
-        DemodFs_clipped = torch.clamp(self.DemodFs, 0.0, 1.0)
+        ModFs_scaled = Utils.ScaleMod(self.ModFs, device, tau=self.tauMin, pAveSource=self.pAveSourcePerPixel)
         # Calculate correlation functions (NxK matrix) and normalize it (zero mean, unit variance)
-        CorrFs = Utils.GetCorrelationFunctions(ModFs_scaled,DemodFs_clipped,dt=self.dt)
+        CorrFs = Utils.GetCorrelationFunctions(ModFs_scaled,self.DemodFs,device,dt=self.dt)
         NormCorrFs = (CorrFs.t() - torch.mean(CorrFs,1)) / torch.std(CorrFs,1)
         NormCorrFs = NormCorrFs.t()
         # Compute brightness values
-        BVals = Utils.ComputeBrightnessVals(ModFs=ModFs_scaled, DemodFs=DemodFs_clipped, CorrFs=CorrFs, depths=gt_depths, \
+        BVals = Utils.ComputeBrightnessVals(ModFs=ModFs_scaled, DemodFs=self.DemodFs, CorrFs=CorrFs, depths=gt_depths, \
                 pAmbient=self.pAveAmbientPerPixel, beta=self.meanBeta, T=self.T, tau=self.tau, dt=self.dt, gamma=self.gamma)
         
         #### Add noise
         # Calculate variance
-        #noiseVar = BVals*self.gamma + math.pow(self.readNoise*self.gamma, 2) 
+        noiseVar = BVals*self.gamma + math.pow(self.readNoise*self.gamma, 2) 
         # Add noise to all brightness values
-        #for i in range(gt_depths.detach().numpy().size):
-        #    BVals[i,:] = Utils.GetClippedBSamples(nSamples=1,BMean=BVals[i,:],BVar=noiseVar[i,:])
+        BVals = Utils.GetClippedBSamples(nSamples=1,BMean=BVals,BVar=noiseVar,device=device)
 
-        decodedDepths = Decoding.DecodeXCorr(BVals,NormCorrFs)
+        decodedDepths = Decoding.DecodeXCorr(BVals,NormCorrFs,device)
         #print("Decoded depths: {},".format(decodedDepths))
         return decodedDepths
 
@@ -118,12 +115,12 @@ model = Pixelwise()
 # Construct our loss function and an Optimizer. The call to model.parameters()
 # in the SGD constructor will contain the learnable parameters of the two
 # nn.Linear modules which are members of the model.
-criterion = torch.nn.MSELoss(reduction='sum')
+criterion = torch.nn.MSELoss(reduction='mean')
 optimizer = optim.Adam([model.ModFs,model.DemodFs], lr = 5e-2)
 
 
 with torch.autograd.detect_anomaly():
-    for t in range(1000):
+    for t in range(200):
         # Create random Tensors to hold inputs and outputs (sample fresh each iteration (generalization))
         N = 1
         H = 10
@@ -143,13 +140,17 @@ with torch.autograd.detect_anomaly():
         loss.backward(retain_graph=True)
         optimizer.step()
 
-print(depths_pred)
-ModFs_scaled = Utils.ScaleMod(model.ModFs, tau=model.tauMin, pAveSource=model.pAveSourcePerPixel)
-UtilsPlot.PlotCodingScheme(model.ModFs,model.DemodFs)
+        # Clamp parameters to physically possible values
+        model.ModFs.data.clamp_(min=0)
+        model.DemodFs.data.clamp_(min=0,max=1)
 
-ModFs_np = model.ModFs.detach().numpy()
-DemodFs_np = model.DemodFs.detach().numpy()
-CorrFs = Utils.GetCorrelationFunctions(model.ModFs,model.DemodFs)
-CorrFs_np = CorrFs.detach().numpy()
+UtilsPlot.PlotCodingScheme(ModFs,DemodFs,device)
+
+ModFs_np = ModFs.cpu().detach().numpy()
+DemodFs_np = DemodFs.cpu().detach().numpy()
+CorrFs = Utils.GetCorrelationFunctions(ModFs,DemodFs,device)
+CorrFs_np = CorrFs.cpu().detach().numpy()
 np.savez('coding_functions.npz', ModFs=ModFs_np, DemodFs=DemodFs_np, CorrFs=CorrFs_np)
+
+
 

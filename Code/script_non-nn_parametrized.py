@@ -14,10 +14,11 @@ import Utils
 import UtilsPlot
 import Decoding
 
-
 dtype = torch.float
 device = torch.device("cpu")
-# device = torch.device("cuda:0") # Uncomment this to run on GPU
+use_gpu = True
+if use_gpu:
+    device = torch.device("cuda:0") # Uncomment this to run on GPU
 
 class Pixelwise(torch.nn.Module):
     def __init__(self):
@@ -36,7 +37,7 @@ class Pixelwise(torch.nn.Module):
         self.N = N
         K = 3
         self.K = K
-        order = 10 # The number of sinusoids to sum per function
+        order = 20 # The number of sinusoids to sum per function
         self.order = order
 
         # Initialize at Hamiltonian
@@ -101,7 +102,7 @@ class Pixelwise(torch.nn.Module):
         DemodFs_func = torch.zeros(self.N, self.K, device=device, dtype=dtype, requires_grad=False)
         ModFs = torch.zeros(self.N, self.K, device=device, dtype=dtype, requires_grad=False)
         DemodFs = torch.zeros(self.N, self.K, device=device, dtype=dtype, requires_grad=False)
-        p = torch.linspace(0, 2*math.pi, self.N)
+        p = torch.linspace(0, 2*math.pi, self.N, device=device)
         for k in range(0, self.K):
             for order in range(0, self.order):
                 ModFs_func[:, k] += self.alpha_mod[k, order] * torch.cos((p+self.phi_mod[k, order])*(order+1))
@@ -114,13 +115,11 @@ class Pixelwise(torch.nn.Module):
         max_DemodFs_func, _ = torch.max(DemodFs_func, dim=0)
         DemodFs = (DemodFs_func - min_DemodFs_func) / (max_DemodFs_func - min_DemodFs_func) # DemodFs can only be 0->1
 
-        UtilsPlot.PlotCodingScheme(ModFs,DemodFs)
-
         #################### Simulation
         ## Set area under the curve of outgoing ModF to the totalEnergy
-        ModFs_scaled = Utils.ScaleMod(ModFs, tau=self.tauMin, pAveSource=self.pAveSourcePerPixel)
+        ModFs_scaled = Utils.ScaleMod(ModFs, device, tau=self.tauMin, pAveSource=self.pAveSourcePerPixel)
         # Calculate correlation functions (NxK matrix) and normalize it (zero mean, unit variance)
-        CorrFs = Utils.GetCorrelationFunctions(ModFs_scaled,DemodFs,dt=self.dt)
+        CorrFs = Utils.GetCorrelationFunctions(ModFs_scaled,DemodFs,device,dt=self.dt)
         NormCorrFs = (CorrFs.t() - torch.mean(CorrFs,1)) / torch.std(CorrFs,1)
         NormCorrFs = NormCorrFs.t()
         # Compute brightness values
@@ -129,12 +128,11 @@ class Pixelwise(torch.nn.Module):
         
         #### Add noise
         # Calculate variance
-        #noiseVar = BVals*self.gamma + math.pow(self.readNoise*self.gamma, 2) 
+        noiseVar = BVals*self.gamma + math.pow(self.readNoise*self.gamma, 2) 
         # Add noise to all brightness values
-        #for i in range(gt_depths.detach().numpy().size):
-        #    BVals[i,:] = Utils.GetClippedBSamples(nSamples=1,BMean=BVals[i,:],BVar=noiseVar[i,:])
+        BVals = Utils.GetClippedBSamples(nSamples=1,BMean=BVals,BVar=noiseVar,device=device)
 
-        decodedDepths = Decoding.DecodeXCorr(BVals,NormCorrFs)
+        decodedDepths = Decoding.DecodeXCorr(BVals,NormCorrFs,device)
         #print("Decoded depths: {},".format(decodedDepths))
         return decodedDepths
 
@@ -145,12 +143,12 @@ model = Pixelwise()
 # Construct our loss function and an Optimizer. The call to model.parameters()
 # in the SGD constructor will contain the learnable parameters of the two
 # nn.Linear modules which are members of the model.
-criterion = torch.nn.MSELoss(reduction='sum')
+criterion = torch.nn.MSELoss(reduction='mean')
 optimizer = optim.Adam([model.alpha_mod, model.alpha_demod, model.phi_mod, model.phi_demod], lr = 5e-3)
 
 
 with torch.autograd.detect_anomaly():
-    for t in range(100):
+    for t in range(200):
         # Create random Tensors to hold inputs and outputs (sample fresh each iteration (generalization))
         N = 1
         H = 10
@@ -181,11 +179,11 @@ ModFs_func = torch.zeros(model.N, model.K, device=device, dtype=dtype, requires_
 DemodFs_func = torch.zeros(model.N, model.K, device=device, dtype=dtype, requires_grad=False)
 ModFs = torch.zeros(model.N, model.K, device=device, dtype=dtype, requires_grad=False)
 DemodFs = torch.zeros(model.N, model.K, device=device, dtype=dtype, requires_grad=False)
-p = torch.linspace(0, 2*math.pi, model.N)
+p = torch.linspace(0, 2*math.pi, model.N, device=device)
 for k in range(0, model.K):
     for order in range(0, model.order):
-        ModFs_func[:, k] += model.alpha_mod[k, order] * torch.sin(p*(order+1) + model.phi_mod[k, order])
-        DemodFs_func[:, k] += model.alpha_demod[k, order] * torch.sin(p*(order+1) + model.phi_demod[k, order])
+        ModFs_func[:, k] += model.alpha_mod[k, order] * torch.cos((p+model.phi_mod[k, order])*(order+1))
+        DemodFs_func[:, k] += model.alpha_demod[k, order] * torch.cos((p+model.phi_demod[k, order])*(order+1))
     
 # Normalize ModFs and DemodFs
 min_ModFs_func, _ = torch.min(ModFs_func, dim=0)
@@ -194,12 +192,12 @@ min_DemodFs_func, _ = torch.min(DemodFs_func, dim=0)
 max_DemodFs_func, _ = torch.max(DemodFs_func, dim=0)
 DemodFs = (DemodFs_func - min_DemodFs_func) / (max_DemodFs_func - min_DemodFs_func) # DemodFs can only be 0->1
 
-UtilsPlot.PlotCodingScheme(ModFs,DemodFs)
+UtilsPlot.PlotCodingScheme(ModFs,DemodFs,device)
 
-ModFs_np = ModFs.detach().numpy()
-DemodFs_np = DemodFs.detach().numpy()
-CorrFs = Utils.GetCorrelationFunctions(ModFs,DemodFs)
-CorrFs_np = CorrFs.detach().numpy()
+ModFs_np = ModFs.cpu().detach().numpy()
+DemodFs_np = DemodFs.cpu().detach().numpy()
+CorrFs = Utils.GetCorrelationFunctions(ModFs,DemodFs,device)
+CorrFs_np = CorrFs.cpu().detach().numpy()
 np.savez('coding_functions.npz', ModFs=ModFs_np, DemodFs=DemodFs_np, CorrFs=CorrFs_np)
 
 

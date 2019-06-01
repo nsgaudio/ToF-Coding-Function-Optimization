@@ -48,7 +48,7 @@ class Pixelwise(torch.nn.Module):
 
         #### Coding (Initialize at Hamiltonian)
         N = 10000
-        K = 3
+        self.K = 3
         (ModFs_np,DemodFs_np) = CodingFunctions.GetHamK3(N = N)
         temp = torch.tensor(ModFs_np, device=device, dtype=dtype)
         self.ModFs = temp.clone().detach().requires_grad_(True)
@@ -88,7 +88,7 @@ class Pixelwise(torch.nn.Module):
         """
 
         #################### Simulation
-        ## Set area under the curve of outgoing ModF to the totalEnergy
+        ## Set area under the curve of outgoing ModF to the totalEnergy        
         ModFs_scaled = Utils.ScaleMod(self.ModFs, device, tau=self.tauMin, pAveSource=self.pAveSourcePerPixel)
         # Calculate correlation functions (NxK matrix) and normalize it (zero mean, unit variance)
         CorrFs = Utils.GetCorrelationFunctions(ModFs_scaled,self.DemodFs,device,dt=self.dt)
@@ -120,7 +120,7 @@ optimizer = optim.Adam([model.ModFs,model.DemodFs], lr = 5e-2)
 
 
 with torch.autograd.detect_anomaly():
-    for t in range(100):
+    for t in range(50):
         # Create random Tensors to hold inputs and outputs (sample fresh each iteration (generalization))
         N = 1
         H = 10
@@ -132,10 +132,16 @@ with torch.autograd.detect_anomaly():
 
         # Compute and print loss
         depth_loss = criterion(depths_pred, gt_depths)
-        smooth_loss = 1e5*criterion(model.ModFs[:-1,:],model.ModFs[1:,:]) + criterion(model.DemodFs[:-1,:],model.DemodFs[1:,:])
-        loss = depth_loss + smooth_loss
+        smooth_loss = 0
+        temp_ModFs = model.ModFs.clone()
+        temp_DemodFs = model.DemodFs.clone()
+        #for i in range(100):
+         #   temp_ModFs = torch.roll(temp_ModFs,1)
+          #  temp_DemodFs = torch.roll(temp_DemodFs,1)
+           # smooth_loss += 1e3*(criterion(temp_ModFs,model.ModFs) + criterion(temp_DemodFs,model.DemodFs))
+        loss = depth_loss #+ smooth_loss
         if (t%10 == 0):
-            print("Iteration %d, Depth loss: %f, Smoothness loss: %f, Overall loss: %f" %(t, depth_loss.item(), smooth_loss.item(), loss.item()))
+            print("Iteration %d, Depth loss: %f, Smoothness loss: %f, Overall loss: %f" %(t, depth_loss.item(), depth_loss.item(), loss.item()))
 
         # Zero gradients, perform a backward pass, and update the weights.
         optimizer.zero_grad()

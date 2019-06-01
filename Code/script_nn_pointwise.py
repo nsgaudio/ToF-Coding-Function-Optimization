@@ -38,8 +38,8 @@ class CNN(torch.nn.Module):
 
         #### Coding (Initialize at Hamiltonian)
         self.N = 10000
-        self.K = 3
-        (ModFs_np,DemodFs_np) = CodingFunctions.GetHamK3(N = self.N)
+        self.K = 1
+        (ModFs_np,DemodFs_np) = CodingFunctions.GetCosCos(N = self.N, K=self.K)
         temp = torch.tensor(ModFs_np, device=device, dtype=dtype)
         #self.ModFs = temp[:,:2].clone().detach().requires_grad_(True)
         self.ModFs = temp.clone().detach().requires_grad_(True)
@@ -493,7 +493,7 @@ print("DATA IMPORTED")
 with torch.autograd.detect_anomaly():
     iteration = 0
     increased = 0
-    patience = 50
+    patience = 100
     train_batch_size = 64
     val_every = 100
     train_enumeration = torch.arange(train_gt_depths.shape[0])

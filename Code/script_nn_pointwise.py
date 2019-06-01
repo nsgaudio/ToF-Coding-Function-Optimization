@@ -41,8 +41,10 @@ class CNN(torch.nn.Module):
         self.K = 3
         (ModFs_np,DemodFs_np) = CodingFunctions.GetHamK3(N = self.N)
         temp = torch.tensor(ModFs_np, device=device, dtype=dtype)
+        #self.ModFs = temp[:,:2].clone().detach().requires_grad_(True)
         self.ModFs = temp.clone().detach().requires_grad_(True)
         temp = torch.tensor(DemodFs_np, device=device, dtype=dtype)
+        #self.DemodFs = temp[:,:2].clone().detach().requires_grad_(True)
         self.DemodFs = temp.clone().detach().requires_grad_(True)
 
         self.architecture = architecture
@@ -163,6 +165,64 @@ class CNN(torch.nn.Module):
                 x = self.layer_up3(x)
                 # Skip layer and combination with CNN
                 x_skip = self.layer_skip_nonlinearity(BVals)
+                x = self.layer_combine(torch.cat([x, x_skip], 1))
+                return x
+
+        if architecture == 'siamese':
+            if init == True:
+                self.layer_down1 = nn.Sequential(
+                    nn.Conv2d(self.K, 32, kernel_size=3, stride=2, padding=1),
+                    nn.BatchNorm2d(32),
+                    nn.ReLU())
+                self.layer_down2 = nn.Sequential(
+                    nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1),
+                    nn.BatchNorm2d(64),
+                    nn.ReLU())
+                self.layer_down3 = nn.Sequential(
+                    nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1),
+                    nn.BatchNorm2d(128),
+                    nn.ReLU())
+
+                self.layer_same1 = nn.Sequential(
+                    nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1),
+                    nn.BatchNorm2d(128),
+                    nn.ReLU())
+
+                self.layer_up1 = nn.Sequential(
+                    nn.BatchNorm2d(128),
+                    nn.ConvTranspose2d(128, 64, kernel_size=4, stride=2, padding=1),
+                    nn.ReLU())
+                self.layer_up2 = nn.Sequential(
+                    nn.BatchNorm2d(64),
+                    nn.ConvTranspose2d(64, 32, kernel_size=4, stride=2, padding=1),
+                    nn.ReLU())
+                self.layer_up3 = nn.Sequential(
+                    nn.BatchNorm2d(32),
+                    nn.ConvTranspose2d(32, 16, kernel_size=4, stride=2, padding=1),
+                    nn.ReLU())
+
+                self.layer_pixelwise1 = nn.Sequential(
+                    nn.Conv2d(self.K, 16, kernel_size=1, stride=1, padding=0),
+                    nn.BatchNorm2d(16),
+                    nn.ReLU())
+
+                self.layer_combine = nn.Sequential(
+                    nn.Conv2d(32,1, kernel_size=1, stride=1, padding=0))
+               
+            else:
+                #### CNN1 (spatial)
+                # Down Convolution
+                x = self.layer_down1(BVals)
+                x = self.layer_down2(x)
+                x = self.layer_down3(x)
+                # Same size Convolution
+                x = self.layer_same1(x)
+                # Up Convolution
+                x = self.layer_up1(x)
+                x = self.layer_up2(x)
+                x = self.layer_up3(x)
+                #### CNN2 (pixelwise)
+                x_skip = self.layer_pixelwise1(BVals)
                 x = self.layer_combine(torch.cat([x, x_skip], 1))
                 return x
 
@@ -391,7 +451,7 @@ class CNN(torch.nn.Module):
 
 # Construct our model by instantiating the class defined above
 # Choose from: 'sequential', 'skip_connection'
-model = CNN('sequential')
+model = CNN('siamese')
 if use_gpu:
     model.cuda()
 print("MODEL MADE")
@@ -479,6 +539,7 @@ with torch.autograd.detect_anomaly():
                 best_val_loss = val_loss
                 best_iteration = iteration
                 best_model = model
+                torch.save(model,'./models/best_model_point_K3_siamese')
                 increased = 0
             else:
                 increased = increased + 1

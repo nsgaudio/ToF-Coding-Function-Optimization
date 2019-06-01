@@ -39,7 +39,7 @@ class CNN(torch.nn.Module):
         #### Parametrized Coding (Fourier Series)
         N = 10000
         self.N = N
-        K = 3
+        K = 1
         self.K = K
         order = 30 # The number of sinusoids to sum per function
         self.order = order
@@ -511,6 +511,7 @@ with torch.autograd.detect_anomaly():
                 best_val_loss = val_loss
                 best_iteration = iteration
                 best_model = model
+                torch.save(model,'./models/best_model_param_K1')
                 increased = 0
             else:
                 increased = increased + 1

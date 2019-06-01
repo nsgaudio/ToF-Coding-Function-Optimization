@@ -41,9 +41,9 @@ class Pixelwise(torch.nn.Module):
         #### Coding (Initialize ModFs and DemodFs at random)
         #N = 10000
         #K = 3
-        #temp = 1/np.power(10, 5) * torch.rand(N, K, device=device, dtype=dtype, requires_grad=True) # scaled random initialization
+        #temp = 1/np.power(10, 2) * torch.rand(N, K, device=device, dtype=dtype, requires_grad=True) # scaled random initialization
         #self.ModFs = temp.clone().detach().requires_grad_(True)
-        #temp = 1/np.power(10, 5) * torch.rand(N, K, device=device, dtype=dtype, requires_grad=True) # scaled random initialization
+        #temp = 1/np.power(10, 2) * torch.rand(N, K, device=device, dtype=dtype, requires_grad=True) # scaled random initialization
         #self.DemodFs = temp.clone().detach().requires_grad_(True)
 
         #### Coding (Initialize at Hamiltonian)
@@ -120,7 +120,7 @@ optimizer = optim.Adam([model.ModFs,model.DemodFs], lr = 5e-2)
 
 
 with torch.autograd.detect_anomaly():
-    for t in range(200):
+    for t in range(100):
         # Create random Tensors to hold inputs and outputs (sample fresh each iteration (generalization))
         N = 1
         H = 10
@@ -131,9 +131,11 @@ with torch.autograd.detect_anomaly():
         depths_pred = model(gt_depths)
 
         # Compute and print loss
-        loss = criterion(depths_pred, gt_depths)
+        depth_loss = criterion(depths_pred, gt_depths)
+        smooth_loss = 1e5*criterion(model.ModFs[:-1,:],model.ModFs[1:,:]) + criterion(model.DemodFs[:-1,:],model.DemodFs[1:,:])
+        loss = depth_loss + smooth_loss
         if (t%10 == 0):
-            print("Iteration %d, Loss value: %f" %(t, loss.item()))
+            print("Iteration %d, Depth loss: %f, Smoothness loss: %f, Overall loss: %f" %(t, depth_loss.item(), smooth_loss.item(), loss.item()))
 
         # Zero gradients, perform a backward pass, and update the weights.
         optimizer.zero_grad()
@@ -144,13 +146,11 @@ with torch.autograd.detect_anomaly():
         model.ModFs.data.clamp_(min=0)
         model.DemodFs.data.clamp_(min=0,max=1)
 
-UtilsPlot.PlotCodingScheme(ModFs,DemodFs,device)
+UtilsPlot.PlotCodingScheme(model.ModFs,model.DemodFs,device)
 
-ModFs_np = ModFs.cpu().detach().numpy()
-DemodFs_np = DemodFs.cpu().detach().numpy()
-CorrFs = Utils.GetCorrelationFunctions(ModFs,DemodFs,device)
+ModFs_np = model.ModFs.cpu().detach().numpy()
+DemodFs_np = model.DemodFs.cpu().detach().numpy()
+CorrFs = Utils.GetCorrelationFunctions(model.ModFs,model.DemodFs,device)
 CorrFs_np = CorrFs.cpu().detach().numpy()
 np.savez('coding_functions.npz', ModFs=ModFs_np, DemodFs=DemodFs_np, CorrFs=CorrFs_np)
-
-
 

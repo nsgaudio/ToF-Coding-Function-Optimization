@@ -240,10 +240,10 @@ val_normalized_gt_depths = (val_gt_depths-train_gt_depths_mean)/train_gt_depths_
 
 print("DATA IMPORTED")
 
-NUM_SKIP_LAYERS = [1, 2]
-SKIP_LAYERS_COEFF = [1, 2]
-ENC_DEC_OUT = [1, 3, 8, 16]
-LEARNING_RATE = [1e-4, 3e-4]
+NUM_SKIP_LAYERS = [2, 1]
+SKIP_LAYERS_COEFF = [2, 1]
+ENC_DEC_OUT = [16, 8, 3, 1]
+LEARNING_RATE = [3e-4, 1e-4]
 search = 1
 file = open("hyperparam_results", "w")
 for num_skip_layers in NUM_SKIP_LAYERS:

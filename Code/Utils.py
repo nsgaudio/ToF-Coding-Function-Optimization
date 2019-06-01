@@ -1,7 +1,7 @@
 #### Python imports
 import math
 import matplotlib
-matplotlib.use('TkAgg')
+# matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 #### Library imports
 import numpy as np

@@ -182,22 +182,22 @@ class CNN(torch.nn.Module):
 
                 if self.num_skip_layers == 1:
                     self.layer_skip_nonlinearity1 = nn.Sequential(
-                        nn.Conv2d(self.K, self.skip_layers_coeff*16, kernel_size=1, stride=1, padding=0),
-                        nn.BatchNorm2d(self.skip_layers_coeff*16),
+                        nn.Conv2d(self.K, self.skip_layers_coeff*8, kernel_size=1, stride=1, padding=0),
+                        nn.BatchNorm2d(self.skip_layers_coeff*8),
                         nn.ReLU())
 
                 if self.num_skip_layers == 2:
                     self.layer_skip_nonlinearity1 = nn.Sequential(
-                        nn.Conv2d(self.K, self.skip_layers_coeff*8, kernel_size=1, stride=1, padding=0),
-                        nn.BatchNorm2d(self.skip_layers_coeff*8),
+                        nn.Conv2d(self.K, self.skip_layers_coeff*4, kernel_size=1, stride=1, padding=0),
+                        nn.BatchNorm2d(self.skip_layers_coeff*4),
                         nn.ReLU())
                     self.layer_skip_nonlinearity2 = nn.Sequential(
-                        nn.Conv2d(self.skip_layers_coeff*8, self.skip_layers_coeff*16, kernel_size=1, stride=1, padding=0),
-                        nn.BatchNorm2d(self.skip_layers_coeff*16),
+                        nn.Conv2d(self.skip_layers_coeff*4, self.skip_layers_coeff*8, kernel_size=1, stride=1, padding=0),
+                        nn.BatchNorm2d(self.skip_layers_coeff*8),
                         nn.ReLU())
 
                 self.layer_combine = nn.Sequential(
-                    nn.Conv2d(self.enc_dec_out + self.skip_layers_coeff*16,1, kernel_size=1, stride=1, padding=0))
+                    nn.Conv2d(self.enc_dec_out + self.skip_layers_coeff*8,1, kernel_size=1, stride=1, padding=0))
             else:
                 # Down Convolution
                 x = self.layer_down1(BVals)
@@ -242,7 +242,7 @@ print("DATA IMPORTED")
 
 NUM_SKIP_LAYERS = [1, 2]
 SKIP_LAYERS_COEFF = [1, 2]
-ENC_DEC_OUT = [1, 3, 8, 16, 32]
+ENC_DEC_OUT = [1, 3, 8, 16]
 LEARNING_RATE = [1e-4, 3e-4]
 search = 1
 file = open("hyperparam_results", "w")

@@ -2,3 +2,12 @@ __pychache__
 *.pyc
 *.png
 *.mat
+*.npz
+Code/model_nn_K1_patched_param
+Code/model_nn_K1_whole_param
+Code/model_nn_K2_patched_param
+Code/model_nn_K2_whole_param
+Code/results_nn_K1_patched_param
+Code/results_nn_K1_whole_param
+Code/results_nn_K2_patched_param
+Code/results_nn_K2_whole_param

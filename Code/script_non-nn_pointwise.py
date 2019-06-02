@@ -17,7 +17,7 @@ import Decoding
 
 dtype = torch.float
 device = torch.device("cpu")
-# device = torch.device("cuda:0") # Uncomment this to run on GPU
+#device = torch.device("cuda:0") # Uncomment this to run on GPU
 
 class Pixelwise(torch.nn.Module):
     def __init__(self):
@@ -49,8 +49,10 @@ class Pixelwise(torch.nn.Module):
         #### Coding (Initialize at Hamiltonian)
         N = 10000
         self.K = 3
+        #(ModFs_np,DemodFs_np) = CodingFunctions.GetCosCos(N = N, K=self.K)
+        #(ModFs_np,DemodFs_np) = CodingFunctions.GetSquare(N = N, K=self.K)
         (ModFs_np,DemodFs_np) = CodingFunctions.GetHamK3(N = N)
-        temp = torch.tensor(ModFs_np, device=device, dtype=dtype)
+        temp = torch.tensor(ModFs_np[:,1], device=device, dtype=dtype)
         self.ModFs = temp.clone().detach().requires_grad_(True)
         temp = torch.tensor(DemodFs_np, device=device, dtype=dtype)
         self.DemodFs = temp.clone().detach().requires_grad_(True)
@@ -88,8 +90,10 @@ class Pixelwise(torch.nn.Module):
         """
 
         #################### Simulation
-        ## Set area under the curve of outgoing ModF to the totalEnergy        
-        ModFs_scaled = Utils.ScaleMod(self.ModFs, device, tau=self.tauMin, pAveSource=self.pAveSourcePerPixel)
+        ## Set area under the curve of outgoing ModF to the totalEnergy
+        ModFs = torch.unsqueeze(self.ModFs,dim=1)
+        ModFs = torch.cat((ModFs,ModFs,ModFs),dim=1)         
+        ModFs_scaled = Utils.ScaleMod(ModFs, device, tau=self.tauMin, pAveSource=self.pAveSourcePerPixel)
         # Calculate correlation functions (NxK matrix) and normalize it (zero mean, unit variance)
         CorrFs = Utils.GetCorrelationFunctions(ModFs_scaled,self.DemodFs,device,dt=self.dt)
         NormCorrFs = (CorrFs.t() - torch.mean(CorrFs,1)) / torch.std(CorrFs,1)
@@ -116,32 +120,30 @@ model = Pixelwise()
 # in the SGD constructor will contain the learnable parameters of the two
 # nn.Linear modules which are members of the model.
 criterion = torch.nn.MSELoss(reduction='mean')
-optimizer = optim.Adam([model.ModFs,model.DemodFs], lr = 5e-2)
+optimizer = optim.Adam([model.ModFs,model.DemodFs], lr = 1e-2)
 
 
 with torch.autograd.detect_anomaly():
-    for t in range(50):
+    best_loss = 1e6
+    for t in range(1000):
         # Create random Tensors to hold inputs and outputs (sample fresh each iteration (generalization))
         N = 1
-        H = 10
-        W = 10
+        H = 20
+        W = 20
         gt_depths = 1000+8000*torch.rand(N, H, W, device=device, dtype=dtype, requires_grad=True)
 
         # Forward pass: Compute predicted y by passing x to the model
         depths_pred = model(gt_depths)
 
         # Compute and print loss
-        depth_loss = criterion(depths_pred, gt_depths)
-        smooth_loss = 0
-        temp_ModFs = model.ModFs.clone()
-        temp_DemodFs = model.DemodFs.clone()
-        #for i in range(100):
-         #   temp_ModFs = torch.roll(temp_ModFs,1)
-          #  temp_DemodFs = torch.roll(temp_DemodFs,1)
-           # smooth_loss += 1e3*(criterion(temp_ModFs,model.ModFs) + criterion(temp_DemodFs,model.DemodFs))
-        loss = depth_loss #+ smooth_loss
+        loss = criterion(depths_pred, gt_depths)
         if (t%10 == 0):
-            print("Iteration %d, Depth loss: %f, Smoothness loss: %f, Overall loss: %f" %(t, depth_loss.item(), depth_loss.item(), loss.item()))
+            print("Iteration %d, Loss: %f" %(t, loss.item()))
+
+        # Save best model
+        if loss < best_loss:
+            best_loss = loss
+            best_model = model
 
         # Zero gradients, perform a backward pass, and update the weights.
         optimizer.zero_grad()
@@ -152,11 +154,15 @@ with torch.autograd.detect_anomaly():
         model.ModFs.data.clamp_(min=0)
         model.DemodFs.data.clamp_(min=0,max=1)
 
-UtilsPlot.PlotCodingScheme(model.ModFs,model.DemodFs,device)
+model = best_model
 
-ModFs_np = model.ModFs.cpu().detach().numpy()
+ModFs = torch.unsqueeze(model.ModFs,dim=1)
+ModFs = torch.cat((ModFs,ModFs,ModFs),dim=1) 
+
+UtilsPlot.PlotCodingScheme(ModFs,model.DemodFs,device)     
+ModFs_np = ModFs.cpu().detach().numpy()
 DemodFs_np = model.DemodFs.cpu().detach().numpy()
-CorrFs = Utils.GetCorrelationFunctions(model.ModFs,model.DemodFs,device)
+CorrFs = Utils.GetCorrelationFunctions(ModFs,model.DemodFs,device)
 CorrFs_np = CorrFs.cpu().detach().numpy()
-np.savez('coding_functions.npz', ModFs=ModFs_np, DemodFs=DemodFs_np, CorrFs=CorrFs_np)
+np.savez('coding_functions/pointwise_initHam.npz', ModFs=ModFs_np, DemodFs=DemodFs_np, CorrFs=CorrFs_np)
 

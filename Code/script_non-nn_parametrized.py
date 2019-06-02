@@ -16,9 +16,7 @@ import Decoding
 
 dtype = torch.float
 device = torch.device("cpu")
-use_gpu = True
-if use_gpu:
-    device = torch.device("cuda:0") # Uncomment this to run on GPU
+#device = torch.device("cuda:0") # Uncomment this to run on GPU
 
 class Pixelwise(torch.nn.Module):
     def __init__(self):
@@ -40,21 +38,51 @@ class Pixelwise(torch.nn.Module):
         order = 20 # The number of sinusoids to sum per function
         self.order = order
 
-        # Initialize at Hamiltonian
-        temp_alpha_mod = torch.zeros(K, order, device=device, dtype=dtype)
+        # Initialize at Sinusoid
+        #temp_alpha_mod = torch.zeros(1, order, device=device, dtype=dtype)
+        #temp_alpha_demod = torch.zeros(K, order, device=device, dtype=dtype)
+        #temp_phi_mod = torch.zeros(1, order, device=device, dtype=dtype)
+        #temp_phi_demod = torch.zeros(K, order, device=device, dtype=dtype)
+        #temp_alpha_mod[0,0] = 1
+        #temp_alpha_demod[:,0] = torch.ones(K, device=device, dtype=dtype)
+        #for i in range(self.K):
+        #    temp_phi_demod[i,:] = -i*2/3*math.pi * torch.ones(order, device=device, dtype=dtype)
+        #self.alpha_mod = temp_alpha_mod.clone().detach().requires_grad_(True)
+        #self.alpha_demod = temp_alpha_demod.clone().detach().requires_grad_(True)
+        #self.phi_mod = temp_phi_mod.clone().detach().requires_grad_(True)
+        #self.phi_demod = temp_phi_demod.clone().detach().requires_grad_(True)
+
+        # Initialize at Square
+        temp_alpha_mod = torch.zeros(1, order, device=device, dtype=dtype)
         temp_alpha_demod = torch.zeros(K, order, device=device, dtype=dtype)
-        temp_phi_mod = torch.zeros(K, order, device=device, dtype=dtype)
+        temp_phi_mod = torch.zeros(1, order, device=device, dtype=dtype)
         temp_phi_demod = torch.zeros(K, order, device=device, dtype=dtype)
         for i in range(self.order):
-            temp_alpha_mod[:,i] = 2*6/((i+1)*math.pi) * np.sin((i+1)*math.pi/6) * torch.ones(K, device=device, dtype=dtype)
+            temp_alpha_mod[0,i] = 2*2/((i+1)*math.pi) * np.sin((i+1)*math.pi/2) * torch.ones(1, device=device, dtype=dtype)
             temp_alpha_demod[:,i] = 2*1/((i+1)*math.pi) * np.sin((i+1)*math.pi/2) * torch.ones(K, device=device, dtype=dtype)
+        #temp_phi_mod[0,:] = -1/12*math.pi * torch.ones(order, device=device, dtype=dtype)
         for i in range(self.K):
-            temp_phi_mod[i,:] = -1/12*math.pi * torch.ones(order, device=device, dtype=dtype)
             temp_phi_demod[i,:] = i*2/3*math.pi * torch.ones(order, device=device, dtype=dtype)
         self.alpha_mod = temp_alpha_mod.clone().detach().requires_grad_(True)
         self.alpha_demod = temp_alpha_demod.clone().detach().requires_grad_(True)
         self.phi_mod = temp_phi_mod.clone().detach().requires_grad_(True)
-        self.phi_demod = temp_phi_demod.clone().detach().requires_grad_(True)
+        self.phi_demod = temp_phi_demod.clone().detach().requires_grad_(True)      
+
+        # Initialize at Hamiltonian
+        #temp_alpha_mod = torch.zeros(1, order, device=device, dtype=dtype)
+        #temp_alpha_demod = torch.zeros(K, order, device=device, dtype=dtype)
+        #temp_phi_mod = torch.zeros(1, order, device=device, dtype=dtype)
+        #temp_phi_demod = torch.zeros(K, order, device=device, dtype=dtype)
+        #for i in range(self.order):
+        #    temp_alpha_mod[0,i] = 2*6/((i+1)*math.pi) * np.sin((i+1)*math.pi/6) * torch.ones(1, device=device, dtype=dtype)
+        #    temp_alpha_demod[:,i] = 2*1/((i+1)*math.pi) * np.sin((i+1)*math.pi/2) * torch.ones(K, device=device, dtype=dtype)
+        #temp_phi_mod[0,:] = -1/12*math.pi * torch.ones(order, device=device, dtype=dtype)
+        #for i in range(self.K):
+        #    temp_phi_demod[i,:] = i*2/3*math.pi * torch.ones(order, device=device, dtype=dtype)
+        #self.alpha_mod = temp_alpha_mod.clone().detach().requires_grad_(True)
+        #self.alpha_demod = temp_alpha_demod.clone().detach().requires_grad_(True)
+        #self.phi_mod = temp_phi_mod.clone().detach().requires_grad_(True)
+        #self.phi_demod = temp_phi_demod.clone().detach().requires_grad_(True)
 
         # Random initialization
         #temp = 1*torch.rand(K, order, device=device, dtype=dtype)
@@ -98,14 +126,14 @@ class Pixelwise(torch.nn.Module):
         """
 
         #### Calculate current coding functions based on learned parameters
-        ModFs_func = torch.zeros(self.N, self.K, device=device, dtype=dtype, requires_grad=False)
+        ModFs_func = torch.zeros(self.N, 1, device=device, dtype=dtype, requires_grad=False)
         DemodFs_func = torch.zeros(self.N, self.K, device=device, dtype=dtype, requires_grad=False)
-        ModFs = torch.zeros(self.N, self.K, device=device, dtype=dtype, requires_grad=False)
+        ModFs = torch.zeros(self.N, 1, device=device, dtype=dtype, requires_grad=False)
         DemodFs = torch.zeros(self.N, self.K, device=device, dtype=dtype, requires_grad=False)
         p = torch.linspace(0, 2*math.pi, self.N, device=device)
-        for k in range(0, self.K):
-            for order in range(0, self.order):
-                ModFs_func[:, k] += self.alpha_mod[k, order] * torch.cos((p+self.phi_mod[k, order])*(order+1))
+        for order in range(0, self.order):
+            ModFs_func[:, 0] += self.alpha_mod[0, order] * torch.cos((p+self.phi_mod[0, order])*(order+1))
+            for k in range(0, self.K):
                 DemodFs_func[:, k] += self.alpha_demod[k, order] * torch.cos((p+self.phi_demod[k, order])*(order+1))
             
         # Normalize ModFs and DemodFs
@@ -117,6 +145,7 @@ class Pixelwise(torch.nn.Module):
 
         #################### Simulation
         ## Set area under the curve of outgoing ModF to the totalEnergy
+        ModFs = torch.cat((ModFs,ModFs,ModFs),dim=1)
         ModFs_scaled = Utils.ScaleMod(ModFs, device, tau=self.tauMin, pAveSource=self.pAveSourcePerPixel)
         # Calculate correlation functions (NxK matrix) and normalize it (zero mean, unit variance)
         CorrFs = Utils.GetCorrelationFunctions(ModFs_scaled,DemodFs,device,dt=self.dt)
@@ -148,11 +177,12 @@ optimizer = optim.Adam([model.alpha_mod, model.alpha_demod, model.phi_mod, model
 
 
 with torch.autograd.detect_anomaly():
-    for t in range(200):
+    best_loss = 1e6
+    for t in range(1000):
         # Create random Tensors to hold inputs and outputs (sample fresh each iteration (generalization))
         N = 1
-        H = 10
-        W = 10
+        H = 20
+        W = 20
         gt_depths = 1000+8000*torch.rand(N, H, W, device=device, dtype=dtype, requires_grad=True)
         #print(gt_depths)
 
@@ -164,6 +194,11 @@ with torch.autograd.detect_anomaly():
         if (t%10 == 0):
             print("Iteration %d, Loss value: %f" %(t, loss.item()))
 
+        # Save best model
+        if loss < best_loss:
+            best_loss = loss
+            best_model = model
+
         # Zero gradients, perform a backward pass, and update the weights.
         optimizer.zero_grad()
         loss.backward(retain_graph=True)
@@ -172,17 +207,17 @@ with torch.autograd.detect_anomaly():
         # Clamp parameters to physically possible values
         #model.alpha_demod.data.clamp_(min=0,max=1)
 
-print(depths_pred)
+model = best_model
 
-#### Calculate final coding functions based on learned parameters
-ModFs_func = torch.zeros(model.N, model.K, device=device, dtype=dtype, requires_grad=False)
+#### Calculate current coding functions based on learned parameters
+ModFs_func = torch.zeros(model.N, 1, device=device, dtype=dtype, requires_grad=False)
 DemodFs_func = torch.zeros(model.N, model.K, device=device, dtype=dtype, requires_grad=False)
-ModFs = torch.zeros(model.N, model.K, device=device, dtype=dtype, requires_grad=False)
+ModFs = torch.zeros(model.N, 1, device=device, dtype=dtype, requires_grad=False)
 DemodFs = torch.zeros(model.N, model.K, device=device, dtype=dtype, requires_grad=False)
 p = torch.linspace(0, 2*math.pi, model.N, device=device)
-for k in range(0, model.K):
-    for order in range(0, model.order):
-        ModFs_func[:, k] += model.alpha_mod[k, order] * torch.cos((p+model.phi_mod[k, order])*(order+1))
+for order in range(0, model.order):
+    ModFs_func[:, 0] += model.alpha_mod[0, order] * torch.cos((p+model.phi_mod[0, order])*(order+1))
+    for k in range(0, model.K):
         DemodFs_func[:, k] += model.alpha_demod[k, order] * torch.cos((p+model.phi_demod[k, order])*(order+1))
     
 # Normalize ModFs and DemodFs
@@ -191,6 +226,7 @@ ModFs = ModFs_func - min_ModFs_func # ModFs can't be lower than zero (negative l
 min_DemodFs_func, _ = torch.min(DemodFs_func, dim=0)
 max_DemodFs_func, _ = torch.max(DemodFs_func, dim=0)
 DemodFs = (DemodFs_func - min_DemodFs_func) / (max_DemodFs_func - min_DemodFs_func) # DemodFs can only be 0->1
+ModFs = torch.cat((ModFs,ModFs,ModFs),dim=1)
 
 UtilsPlot.PlotCodingScheme(ModFs,DemodFs,device)
 
@@ -198,7 +234,5 @@ ModFs_np = ModFs.cpu().detach().numpy()
 DemodFs_np = DemodFs.cpu().detach().numpy()
 CorrFs = Utils.GetCorrelationFunctions(ModFs,DemodFs,device)
 CorrFs_np = CorrFs.cpu().detach().numpy()
-np.savez('coding_functions.npz', ModFs=ModFs_np, DemodFs=DemodFs_np, CorrFs=CorrFs_np)
-
-
+np.savez('coding_functions/param_initSquare.npz', ModFs=ModFs_np, DemodFs=DemodFs_np, CorrFs=CorrFs_np)
 

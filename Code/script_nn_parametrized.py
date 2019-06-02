@@ -441,8 +441,13 @@ parameters.append(model.phi_demod)
 optimizer = optim.Adam(parameters, lr = 3e-4)
 
 # Load data
+<<<<<<< HEAD
 data = loadmat('patches_64.mat')
 #data = loadmat('patches_train_test_val_64.mat')
+=======
+# data = loadmat('patches_64.mat')
+data = loadmat('patches_train_test_val_64.mat')
+>>>>>>> 2e51749f4db57eed06387574028fa8148c14281a
 train = data['patches_train']
 val = data['patches_val']
 test = data['patches_test']

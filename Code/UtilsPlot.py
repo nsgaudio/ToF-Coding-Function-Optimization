@@ -130,7 +130,7 @@ def PlotCodingScheme(ModFs, DemodFs, device, tau=1):
 	# axarr[1].set_ylim([0,1.2*np.max(DemodFs)])
 	# axarr[2].set_ylim([0,1.2*np.max(CorrFs)])	
 
-	plt.show(block=True)
+	# plt.show(block=True)
 
 	return (fig, axarr)
 

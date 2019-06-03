@@ -330,9 +330,9 @@ for K in K_NUMBER:
     row_patch_num = 7
     col_patch_num = 9
     patch_num_scene = row_patch_num * col_patch_num
-    test_depths_pred_unnorm = test_depths_pred_unnorm.cpu().numpy()
-    test_gt_depths = test_gt_depths.cpu().numpy()
-    num = np.floor(test_depths_pred_unnorm.shape[0] / patch_num_scene)
+    test_depths_pred_unnorm_cpu = test_depths_pred_unnorm.cpu().numpy()
+    test_gt_depths_cpu = test_gt_depths.cpu().numpy()
+    num = np.floor(test_depths_pred_unnorm_cpu.shape[0] / patch_num_scene)
     n1 = randint(0, num-1)
     n2 = randint(0, num-1)
     im1 = np.zeros((row_patch_num*D, col_patch_num*D))
@@ -343,10 +343,10 @@ for K in K_NUMBER:
     ind2 = int(patch_num_scene * n2)
     for r in range(row_patch_num):
         for c in range(col_patch_num):
-            im1[r*D:(r+1)*D, c*D:(c+1)*D] = np.squeeze(test_depths_pred_unnorm[ind1, :, :])
-            im1_gt[r*D:(r+1)*D, c*D:(c+1)*D] = np.squeeze(test_gt_depths[ind1, :, :])
-            im2[r*D:(r+1)*D, c*D:(c+1)*D] = np.squeeze(test_depths_pred_unnorm[ind2, :, :])
-            im2_gt[r*D:(r+1)*D, c*D:(c+1)*D] = np.squeeze(test_gt_depths[ind2, :, :])
+            im1[r*D:(r+1)*D, c*D:(c+1)*D] = np.squeeze(test_depths_pred_unnorm_cpu[ind1, :, :])
+            im1_gt[r*D:(r+1)*D, c*D:(c+1)*D] = np.squeeze(test_gt_depths_cpu[ind1, :, :])
+            im2[r*D:(r+1)*D, c*D:(c+1)*D] = np.squeeze(test_depths_pred_unnorm_cpu[ind2, :, :])
+            im2_gt[r*D:(r+1)*D, c*D:(c+1)*D] = np.squeeze(test_gt_depths_cpu[ind2, :, :])
             ind1 = ind1 + 1
             ind2 = ind2 + 1
     im1_max = np.amax(im1_gt)

@@ -38,12 +38,12 @@ class CNN(torch.nn.Module):
 
         #### Coding (Initialize at Hamiltonian)
         self.N = 10000
-        self.K = 1
+        self.K = 2
         (ModFs_np,DemodFs_np) = CodingFunctions.GetHamK3(N = self.N)
         temp = torch.tensor(ModFs_np, device=device, dtype=dtype)
-        self.ModFs = temp[:,:K].clone().detach().requires_grad_(True)
+        self.ModFs = temp[:,0].clone().detach().requires_grad_(True)
         temp = torch.tensor(DemodFs_np, device=device, dtype=dtype)
-        self.DemodFs = temp[:,:K].clone().detach().requires_grad_(True)
+        self.DemodFs = temp[:,:self.K].clone().detach().requires_grad_(True)
 
         self.architecture = architecture
         #### Global parameters
@@ -82,7 +82,9 @@ class CNN(torch.nn.Module):
 
         #################### Simulation
         ## Set area under the curve of outgoing ModF to the totalEnergy
-        ModFs_scaled = Utils.ScaleMod(self.ModFs, device=device, tau=self.tauMin, pAveSource=self.pAveSourcePerPixel)
+        ModFs = torch.unsqueeze(self.ModFs,dim=1)
+        ModFs = torch.cat((ModFs,ModFs),dim=1)
+        ModFs_scaled = Utils.ScaleMod(ModFs, device=device, tau=self.tauMin, pAveSource=self.pAveSourcePerPixel)
         # Calculate correlation functions (NxK matrix) and normalize it (zero mean, unit variance)
         CorrFs = Utils.GetCorrelationFunctions(ModFs_scaled,self.DemodFs,device=device,dt=self.dt)
         NormCorrFs = (CorrFs.t() - torch.mean(CorrFs,1)) / torch.std(CorrFs,1)
@@ -139,16 +141,20 @@ class CNN(torch.nn.Module):
                     nn.ReLU())
                 self.layer_up3 = nn.Sequential(
                     nn.BatchNorm2d(32),
-                    nn.ConvTranspose2d(32, 1, kernel_size=4, stride=2, padding=1),
+                    nn.ConvTranspose2d(32, 8, kernel_size=4, stride=2, padding=1),
                     nn.ReLU())
 
-                self.layer_skip_nonlinearity = nn.Sequential(
-                    nn.Conv2d(self.K, 32, kernel_size=1, stride=1, padding=0),
-                    nn.BatchNorm2d(32),
+                self.layer_skip_nonlinearity1 = nn.Sequential(
+                    nn.Conv2d(self.K, 8, kernel_size=1, stride=1, padding=0),
+                    nn.BatchNorm2d(8),
+                    nn.ReLU())
+                self.layer_skip_nonlinearity2 = nn.Sequential(
+                    nn.Conv2d(8, 16, kernel_size=1, stride=1, padding=0),
+                    nn.BatchNorm2d(16),
                     nn.ReLU())
 
                 self.layer_combine = nn.Sequential(
-                    nn.Conv2d(33,1, kernel_size=1, stride=1, padding=0))
+                    nn.Conv2d(24,1, kernel_size=1, stride=1, padding=0))
                
             else:
                 # Down Convolution
@@ -162,7 +168,8 @@ class CNN(torch.nn.Module):
                 x = self.layer_up2(x)
                 x = self.layer_up3(x)
                 # Skip layer and combination with CNN
-                x_skip = self.layer_skip_nonlinearity(BVals)
+                x_skip = self.layer_skip_nonlinearity1(BVals)
+                x_skip = self.layer_skip_nonlinearity2(x_skip)
                 x = self.layer_combine(torch.cat([x, x_skip], 1))
                 return x
 
@@ -449,7 +456,7 @@ class CNN(torch.nn.Module):
 
 # Construct our model by instantiating the class defined above
 # Choose from: 'sequential', 'skip_connection'
-model = CNN('siamese')
+model = CNN('sequential')
 if use_gpu:
     model.cuda()
 print("MODEL MADE")
@@ -537,7 +544,7 @@ with torch.autograd.detect_anomaly():
                 best_val_loss = val_loss
                 best_iteration = iteration
                 best_model = model
-                torch.save(model,'./models/best_model_point_K3_siamese')
+                torch.save(model,'./models/best_model_point_K2')
                 increased = 0
             else:
                 increased = increased + 1

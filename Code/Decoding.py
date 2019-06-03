@@ -46,3 +46,31 @@ def DecodeXCorr(BMeasurements, NormCorrFs, device):
 		#decodedDepths_reshaped[i] = torch.argmax(Corr_B,dim=0)
 	decodedDepths = torch.reshape(decodedDepths_reshaped, (C, H, W))
 	return decodedDepths
+
+
+def DecodeXCorrArgmax(BMeasurements, NormCorrFs, device):
+	"""DecodeXCorr: Generic decoding algorithm that performs a 1D search on the normalized 
+	correlation functions.
+	
+	Args:
+	    BMeasurements (np.ndarray): B x K matrix. B sets of K brightness measurements
+	    NormCorrFs (np.ndarray): N x K matrix. Normalized Correlation functions. Zero mean
+	    unit variance.
+	Returns:
+	    np.array: decodedDepths 
+	"""
+	C, H, W, K = BMeasurements.shape
+	BMeasurements_reshaped = torch.reshape(BMeasurements, (-1, K))
+	B, K = BMeasurements_reshaped.shape
+	N = NormCorrFs.shape[0]
+
+	## Normalize Brightness Measurements functions
+	NormBMeasurements_reshaped = (BMeasurements_reshaped.t() - torch.mean(BMeasurements_reshaped, dim=1)) / torch.std(BMeasurements_reshaped, dim=1)
+
+	## Calculate the cross correlation for every measurement and the maximum one will be the depth
+	decodedDepths_reshaped = torch.zeros((B,), dtype=torch.float, device=device)
+	for i in range(B):
+		Corr_B = torch.mv(NormCorrFs, NormBMeasurements_reshaped[:,i])
+		decodedDepths_reshaped[i] = torch.argmax(Corr_B,dim=0)
+	decodedDepths = torch.reshape(decodedDepths_reshaped, (C, H, W))
+	return decodedDepths

@@ -39,11 +39,11 @@ class CNN(torch.nn.Module):
         #### Coding (Initialize at Hamiltonian)
         self.N = 10000
         self.K = K
-        (ModFs_np,DemodFs_np) = CodingFunctions.GetCosCos(N = self.N, K=self.K)
+        (ModFs_np,DemodFs_np) = CodingFunctions.GetHamK3(N = self.N)
         temp = torch.tensor(ModFs_np, device=device, dtype=dtype)
-        self.ModFs = temp[:,:K].clone().detach().requires_grad_(True)
+        self.ModFs = temp[:,0].clone().detach().requires_grad_(True)
         temp = torch.tensor(DemodFs_np, device=device, dtype=dtype)
-        self.DemodFs = temp[:,:K].clone().detach().requires_grad_(True)
+        self.DemodFs = temp[:,:self.K].clone().detach().requires_grad_(True)
 
         self.architecture = architecture
         #### Global parameters
@@ -82,7 +82,10 @@ class CNN(torch.nn.Module):
 
         #################### Simulation
         ## Set area under the curve of outgoing ModF to the totalEnergy
-        ModFs_scaled = Utils.ScaleMod(self.ModFs, device=device, tau=self.tauMin, pAveSource=self.pAveSourcePerPixel)
+        ModFs = torch.unsqueeze(self.ModFs,dim=1)
+        if self.K == 2:
+            ModFs = torch.cat((ModFs,ModFs),dim=1)
+        ModFs_scaled = Utils.ScaleMod(ModFs, device=device, tau=self.tauMin, pAveSource=self.pAveSourcePerPixel)
         # Calculate correlation functions (NxK matrix) and normalize it (zero mean, unit variance)
         CorrFs = Utils.GetCorrelationFunctions(ModFs_scaled,self.DemodFs,device=device,dt=self.dt)
         NormCorrFs = (CorrFs.t() - torch.mean(CorrFs,1)) / torch.std(CorrFs,1)
@@ -198,7 +201,7 @@ val_normalized_gt_depths = (val_gt_depths-train_gt_depths_mean)/train_gt_depths_
 test_normalized_gt_depths = (test_gt_depths-train_gt_depths_mean)/train_gt_depths_std
 print("DATA IMPORTED")
 
-K_NUMBER = [1, 2]
+K_NUMBER = [2,1]
 for K in K_NUMBER:
     # Construct our model by instantiating the class defined above
     # Choose from: 'sequential', 'skip_connection'

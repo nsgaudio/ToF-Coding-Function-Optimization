@@ -39,7 +39,7 @@ class CNN(torch.nn.Module):
         #### Coding (Initialize at Hamiltonian)
         self.N = 10000
         self.K = K
-        (ModFs_np,DemodFs_np) = CodingFunctions.GetCosCos(N = self.N, K=self.K)
+        (ModFs_np,DemodFs_np) = CodingFunctions.GetHamK3(N = self.N)
         temp = torch.tensor(ModFs_np, device=device, dtype=dtype)
         self.ModFs = temp[:,:K].clone().detach().requires_grad_(True)
         temp = torch.tensor(DemodFs_np, device=device, dtype=dtype)
@@ -198,7 +198,7 @@ val_normalized_gt_depths = (val_gt_depths-train_gt_depths_mean)/train_gt_depths_
 test_normalized_gt_depths = (test_gt_depths-train_gt_depths_mean)/train_gt_depths_std
 print("DATA IMPORTED")
 
-K_NUMBER = [1, 2]
+K_NUMBER = [2,1]
 for K in K_NUMBER:
     # Construct our model by instantiating the class defined above
     # Choose from: 'sequential', 'skip_connection'

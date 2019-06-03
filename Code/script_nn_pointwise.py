@@ -39,13 +39,11 @@ class CNN(torch.nn.Module):
         #### Coding (Initialize at Hamiltonian)
         self.N = 10000
         self.K = 1
-        (ModFs_np,DemodFs_np) = CodingFunctions.GetCosCos(N = self.N, K=self.K)
+        (ModFs_np,DemodFs_np) = CodingFunctions.GetHamK3(N = self.N)
         temp = torch.tensor(ModFs_np, device=device, dtype=dtype)
-        #self.ModFs = temp[:,:2].clone().detach().requires_grad_(True)
-        self.ModFs = temp.clone().detach().requires_grad_(True)
+        self.ModFs = temp[:,:K].clone().detach().requires_grad_(True)
         temp = torch.tensor(DemodFs_np, device=device, dtype=dtype)
-        #self.DemodFs = temp[:,:2].clone().detach().requires_grad_(True)
-        self.DemodFs = temp.clone().detach().requires_grad_(True)
+        self.DemodFs = temp[:,:K].clone().detach().requires_grad_(True)
 
         self.architecture = architecture
         #### Global parameters

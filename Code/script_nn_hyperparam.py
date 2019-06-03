@@ -240,112 +240,112 @@ val_normalized_gt_depths = (val_gt_depths-train_gt_depths_mean)/train_gt_depths_
 
 print("DATA IMPORTED")
 
-NUM_SKIP_LAYERS = [2, 1]
-SKIP_LAYERS_COEFF = [2, 1]
+num_skip_layers = 2
+SKIP_LAYERS_COEFF = [1, 2]
 ENC_DEC_OUT = [16, 8, 3, 1]
-LEARNING_RATE = [3e-4, 1e-4]
+LEARNING_RATE = [3e-4]
 search = 1
-file = open("hyperparam_results", "w")
-for num_skip_layers in NUM_SKIP_LAYERS:
-    for skip_layers_coeff in SKIP_LAYERS_COEFF:
-        for enc_dec_out in ENC_DEC_OUT:
-            for learning_rate in LEARNING_RATE:
-                # Construct our model by instantiating the class defined above
-                # Choose from: 'sequential', 'skip_connection'
-                model = CNN('sequential', num_skip_layers, skip_layers_coeff, enc_dec_out)
-                if use_gpu:
-                    model.cuda()
-                print("MODEL MADE")
-                # Construct our loss function and an Optimizer. The call to model.parameters()
-                # in the SGD constructor will contain the learnable parameters of the two
-                # nn.Linear modules which are members of the model.
-                criterion = torch.nn.MSELoss(reduction='mean')
-                parameters = list(model.parameters())
-                parameters.append(model.alpha_mod)
-                parameters.append(model.alpha_demod)
-                parameters.append(model.phi_mod)
-                parameters.append(model.phi_demod)
-                optimizer = optim.Adam(parameters, lr = learning_rate)
+file = open("hyperparam_results_skip2", "w")
+
+for skip_layers_coeff in SKIP_LAYERS_COEFF:
+    for enc_dec_out in ENC_DEC_OUT:
+        for learning_rate in LEARNING_RATE:
+            # Construct our model by instantiating the class defined above
+            # Choose from: 'sequential', 'skip_connection'
+            model = CNN('sequential', num_skip_layers, skip_layers_coeff, enc_dec_out)
+            if use_gpu:
+                model.cuda()
+            print("MODEL MADE")
+            # Construct our loss function and an Optimizer. The call to model.parameters()
+            # in the SGD constructor will contain the learnable parameters of the two
+            # nn.Linear modules which are members of the model.
+            criterion = torch.nn.MSELoss(reduction='mean')
+            parameters = list(model.parameters())
+            parameters.append(model.alpha_mod)
+            parameters.append(model.alpha_demod)
+            parameters.append(model.phi_mod)
+            parameters.append(model.phi_demod)
+            optimizer = optim.Adam(parameters, lr = learning_rate)
 
 
-                with torch.autograd.detect_anomaly():
-                    iteration = 0
-                    increased = 0
-                    patience = 5
-                    train_batch_size = 64
-                    val_every = 100
-                    train_enumeration = torch.arange(train_gt_depths.shape[0])
-                    train_enumeration = train_enumeration.tolist()
-                    train_loss_history = []
-                    val_loss_history = []
+            with torch.autograd.detect_anomaly():
+                iteration = 0
+                increased = 0
+                patience = 5
+                train_batch_size = 64
+                val_every = 100
+                train_enumeration = torch.arange(train_gt_depths.shape[0])
+                train_enumeration = train_enumeration.tolist()
+                train_loss_history = []
+                val_loss_history = []
 
-                    while increased <= patience:
-                        train_ind = random.sample(train_enumeration, train_batch_size)
-                        # Forward pass: Compute predicted y by passing x to the model
-                        train_depths_pred = model(train_gt_depths[train_ind,:,:])
-                        # Compute and print loss
-                        train_loss = criterion(train_depths_pred, train_normalized_gt_depths[train_ind])
-                        train_loss_history.append(train_loss.item())
-                        train_depths_pred_unnorm = train_depths_pred*train_gt_depths_std+train_gt_depths_mean
-                        train_MSE = criterion(train_depths_pred_unnorm, train_gt_depths[train_ind])        
-                        iteration = iteration + 1
+                while increased <= patience:
+                    train_ind = random.sample(train_enumeration, train_batch_size)
+                    # Forward pass: Compute predicted y by passing x to the model
+                    train_depths_pred = model(train_gt_depths[train_ind,:,:])
+                    # Compute and print loss
+                    train_loss = criterion(train_depths_pred, train_normalized_gt_depths[train_ind])
+                    train_loss_history.append(train_loss.item())
+                    train_depths_pred_unnorm = train_depths_pred*train_gt_depths_std+train_gt_depths_mean
+                    train_MSE = criterion(train_depths_pred_unnorm, train_gt_depths[train_ind])        
+                    iteration = iteration + 1
 
-                        # Zero gradients, perform a backward pass, and update the weights.
-                        optimizer.zero_grad()
-                        train_loss.backward(retain_graph=True)
-                        optimizer.step()
+                    # Zero gradients, perform a backward pass, and update the weights.
+                    optimizer.zero_grad()
+                    train_loss.backward(retain_graph=True)
+                    optimizer.step()
 
-                        if use_gpu:
-                            #print("Memory before freeing cache:", torch.cuda.memory_allocated(device))
-                            torch.cuda.empty_cache()
-                            #print("Memory after freeing cache: ", torch.cuda.memory_allocated(device))
+                    if use_gpu:
+                        #print("Memory before freeing cache:", torch.cuda.memory_allocated(device))
+                        torch.cuda.empty_cache()
+                        #print("Memory after freeing cache: ", torch.cuda.memory_allocated(device))
 
-                        if iteration == 1 or iteration%val_every == 0:
-                            with torch.no_grad():
-                                val_depths_pred = model(val_gt_depths)
-                                val_loss = criterion(val_depths_pred, val_normalized_gt_depths)
-                                val_loss_history.append(val_loss.item())
-                                val_depths_pred_unnorm = val_depths_pred*train_gt_depths_std+train_gt_depths_mean
-                                val_MSE = criterion(val_depths_pred_unnorm, val_gt_depths)
+                    if iteration == 1 or iteration%val_every == 0:
+                        with torch.no_grad():
+                            val_depths_pred = model(val_gt_depths)
+                            val_loss = criterion(val_depths_pred, val_normalized_gt_depths)
+                            val_loss_history.append(val_loss.item())
+                            val_depths_pred_unnorm = val_depths_pred*train_gt_depths_std+train_gt_depths_mean
+                            val_MSE = criterion(val_depths_pred_unnorm, val_gt_depths)
 
-                            print("Iteration: %d, Train Loss: %f, Val Loss: %f, Train MSE: %f, Val MSE: %f" %(iteration, train_loss.item(), val_loss.item(), train_MSE, val_MSE))
-                            if iteration == 1 or val_loss < best_val_loss:
-                                best_val_loss = val_loss
-                                best_iteration = iteration
-                                best_model = model
-                                # torch.save(model,'./models/best_model_param_K1')
-                                increased = 0
-                            else:
-                                increased = increased + 1
-                print("**************DONE TRAINING*******************")
-                file.write("**************DONE TRAINING*******************" + "\n")
-                print("Number of Skip Layers:", num_skip_layers)
-                file.write("Number of Skip Layers:" + str(num_skip_layers) + "\n")
-                print("Number of Skip Layers Coefficient:", skip_layers_coeff)
-                file.write("Number of Skip Layers Coefficient:" + str(skip_layers_coeff) + "\n")
-                print("Encode Decode Output Num:", enc_dec_out)
-                file.write("Encode Decode Output Num:" + str(enc_dec_out) + "\n")
-                print("Learning Rate:", learning_rate)
-                file.write("Learning Rate:" + str(learning_rate) + "\n")
-                print("Best Validation Loss:", best_val_loss.item())
-                file.write("Best Validation Loss:" + str(best_val_loss.item()) + "\n")
-                print("Best Iteration:", best_iteration)
-                file.write("Best Iteration:" + str(best_iteration) + "\n")
-                print("**********************************************")
-                file.write("**********************************************" + "\n")
-                if search == 1:
-                    GLOBAL_best_val_loss = best_val_loss
-                    GLOBAL_num_skip_layers = num_skip_layers
-                    GLOBAL_skip_layers_coeff = skip_layers_coeff
-                    GLOBAL_enc_dec_out = enc_dec_out
-                    GLOBAL_learning_rate = learning_rate
-                search = search + 1
-                if best_val_loss < GLOBAL_best_val_loss:
-                    GLOBAL_best_val_loss = best_val_loss
-                    GLOBAL_num_skip_layers = num_skip_layers
-                    GLOBAL_skip_layers_coeff = skip_layers_coeff
-                    GLOBAL_enc_dec_out = enc_dec_out
-                    GLOBAL_learning_rate = learning_rate
+                        print("Iteration: %d, Train Loss: %f, Val Loss: %f, Train MSE: %f, Val MSE: %f" %(iteration, train_loss.item(), val_loss.item(), train_MSE, val_MSE))
+                        if iteration == 1 or val_loss < best_val_loss:
+                            best_val_loss = val_loss
+                            best_iteration = iteration
+                            best_model = model
+                            # torch.save(model,'./models/best_model_param_K1')
+                            increased = 0
+                        else:
+                            increased = increased + 1
+            print("**************DONE TRAINING*******************")
+            file.write("**************DONE TRAINING*******************" + "\n")
+            print("Number of Skip Layers:", num_skip_layers)
+            file.write("Number of Skip Layers:" + str(num_skip_layers) + "\n")
+            print("Number of Skip Layers Coefficient:", skip_layers_coeff)
+            file.write("Number of Skip Layers Coefficient:" + str(skip_layers_coeff) + "\n")
+            print("Encode Decode Output Num:", enc_dec_out)
+            file.write("Encode Decode Output Num:" + str(enc_dec_out) + "\n")
+            print("Learning Rate:", learning_rate)
+            file.write("Learning Rate:" + str(learning_rate) + "\n")
+            print("Best Validation Loss:", best_val_loss.item())
+            file.write("Best Validation Loss:" + str(best_val_loss.item()) + "\n")
+            print("Best Iteration:", best_iteration)
+            file.write("Best Iteration:" + str(best_iteration) + "\n")
+            print("**********************************************")
+            file.write("**********************************************" + "\n")
+            if search == 1:
+                GLOBAL_best_val_loss = best_val_loss
+                GLOBAL_num_skip_layers = num_skip_layers
+                GLOBAL_skip_layers_coeff = skip_layers_coeff
+                GLOBAL_enc_dec_out = enc_dec_out
+                GLOBAL_learning_rate = learning_rate
+            search = search + 1
+            if best_val_loss < GLOBAL_best_val_loss:
+                GLOBAL_best_val_loss = best_val_loss
+                GLOBAL_num_skip_layers = num_skip_layers
+                GLOBAL_skip_layers_coeff = skip_layers_coeff
+                GLOBAL_enc_dec_out = enc_dec_out
+                GLOBAL_learning_rate = learning_rate
 
 print("********************************************************")
 file.write("********************************************************" + "\n")

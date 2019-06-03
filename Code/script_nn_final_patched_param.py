@@ -40,19 +40,19 @@ class CNN(torch.nn.Module):
         N = 10000
         self.N = N
         self.K = K
-        order = 30 # The number of sinusoids to sum per function
+        order = 20 # The number of sinusoids to sum per function
         self.order = order
 
         # Initialize at Hamiltonian
-        temp_alpha_mod = torch.zeros(K, order, device=device, dtype=dtype)
+        temp_alpha_mod = torch.zeros(1, order, device=device, dtype=dtype)
         temp_alpha_demod = torch.zeros(K, order, device=device, dtype=dtype)
-        temp_phi_mod = torch.zeros(K, order, device=device, dtype=dtype)
+        temp_phi_mod = torch.zeros(1, order, device=device, dtype=dtype)
         temp_phi_demod = torch.zeros(K, order, device=device, dtype=dtype)
         for i in range(self.order):
-            temp_alpha_mod[:,i] = 2*6/((i+1)*math.pi) * np.sin((i+1)*math.pi/6) * torch.ones(K, device=device, dtype=dtype)
+            temp_alpha_mod[0,i] = 2*6/((i+1)*math.pi) * np.sin((i+1)*math.pi/6) * torch.ones(1, device=device, dtype=dtype)
             temp_alpha_demod[:,i] = 2*1/((i+1)*math.pi) * np.sin((i+1)*math.pi/2) * torch.ones(K, device=device, dtype=dtype)
+        temp_phi_mod[0,:] = -1/12*math.pi * torch.ones(order, device=device, dtype=dtype)
         for i in range(self.K):
-            temp_phi_mod[i,:] = -1/12*math.pi * torch.ones(order, device=device, dtype=dtype)
             temp_phi_demod[i,:] = i*2/3*math.pi * torch.ones(order, device=device, dtype=dtype)
         self.alpha_mod = temp_alpha_mod.clone().detach().requires_grad_(True)
         self.alpha_demod = temp_alpha_demod.clone().detach().requires_grad_(True)
@@ -95,14 +95,14 @@ class CNN(torch.nn.Module):
         """
         
         #### Calculate current coding functions based on learned parameters
-        ModFs_func = torch.zeros(self.N, self.K, device=device, dtype=dtype, requires_grad=False)
+        ModFs_func = torch.zeros(self.N, 1, device=device, dtype=dtype, requires_grad=False)
         DemodFs_func = torch.zeros(self.N, self.K, device=device, dtype=dtype, requires_grad=False)
-        ModFs = torch.zeros(self.N, self.K, device=device, dtype=dtype, requires_grad=False)
+        ModFs = torch.zeros(self.N, 1, device=device, dtype=dtype, requires_grad=False)
         DemodFs = torch.zeros(self.N, self.K, device=device, dtype=dtype, requires_grad=False)
         p = torch.linspace(0, 2*math.pi, self.N, device=device)
-        for k in range(0, self.K):
-            for order in range(0, self.order):
-                ModFs_func[:, k] += self.alpha_mod[k, order] * torch.cos((p+self.phi_mod[k, order])*(order+1))
+        for order in range(0, self.order):
+            ModFs_func[:, 0] += self.alpha_mod[0, order] * torch.cos((p+self.phi_mod[0, order])*(order+1))
+            for k in range(0, self.K):
                 DemodFs_func[:, k] += self.alpha_demod[k, order] * torch.cos((p+self.phi_demod[k, order])*(order+1))
             
         # Normalize ModFs and DemodFs
@@ -114,6 +114,7 @@ class CNN(torch.nn.Module):
 
         #################### Simulation
         ## Set area under the curve of outgoing ModF to the totalEnergy
+        ModFs = ModFs.repeat(1,self.K)
         ModFs_scaled = Utils.ScaleMod(ModFs, device, tau=self.tauMin, pAveSource=self.pAveSourcePerPixel)
         # Calculate correlation functions (NxK matrix) and normalize it (zero mean, unit variance)
         CorrFs = Utils.GetCorrelationFunctions(ModFs_scaled,DemodFs,device,dt=self.dt)
@@ -172,16 +173,21 @@ class CNN(torch.nn.Module):
                     nn.ReLU())
                 self.layer_up3 = nn.Sequential(
                     nn.BatchNorm2d(32),
-                    nn.ConvTranspose2d(32, 1, kernel_size=4, stride=2, padding=1),
+                    nn.ConvTranspose2d(32, 8, kernel_size=4, stride=2, padding=1),
                     nn.ReLU())
 
                 self.layer_skip_nonlinearity1 = nn.Sequential(
-                    nn.Conv2d(self.K, 16, kernel_size=1, stride=1, padding=0),
+                    nn.Conv2d(self.K, 8, kernel_size=1, stride=1, padding=0),
+                    nn.BatchNorm2d(8),
+                    nn.ReLU())
+                self.layer_skip_nonlinearity2 = nn.Sequential(
+                    nn.Conv2d(8, 16, kernel_size=1, stride=1, padding=0),
                     nn.BatchNorm2d(16),
                     nn.ReLU())
 
+
                 self.layer_combine = nn.Sequential(
-                    nn.Conv2d(17,1, kernel_size=1, stride=1, padding=0))
+                    nn.Conv2d(24,1, kernel_size=1, stride=1, padding=0))
                
             else:
                 # Down Convolution
@@ -196,6 +202,7 @@ class CNN(torch.nn.Module):
                 x = self.layer_up3(x)
                 # Skip layer and combination with CNN
                 x_skip = self.layer_skip_nonlinearity1(BVals)
+                x_skip = self.layer_skip_nonlinearity2(x_skip)
                 x = self.layer_combine(torch.cat([x, x_skip], 1))
                 return x
 
@@ -280,19 +287,18 @@ for K in K_NUMBER:
                     val_loss_history.append(val_loss.item())
                     val_depths_pred_unnorm = val_depths_pred*train_gt_depths_std+train_gt_depths_mean
                     val_MSE = criterion(val_depths_pred_unnorm, val_gt_depths)
-                print("K:", K)
-                print("Iteration: %d, Train Loss: %f, Val Loss: %f, Train MSE: %f, Val MSE: %f" %(iteration, train_loss.item(), val_loss.item(), train_MSE, val_MSE))
+                print("Iteration: %d, K: %d, Train Loss: %f, Val Loss: %f, Train MSE: %f, Val MSE: %f" %(iteration, K, train_loss.item(), val_loss.item(), train_MSE, val_MSE))
                 if iteration == 1 or val_loss < best_val_loss:
                     best_val_loss = val_loss
                     best_iteration = iteration
                     best_model = model
-                    model_name = 'model_nn_K' + str(K) + '_patched_param'
+                    model_name = 'results/model_nn_K' + str(K) + '_patched_param'
                     torch.save(model, model_name)
                     increased = 0
                 else:
                     increased = increased + 1
 
-    results = "results_nn_K" + str(K) + "_patched_param"
+    results = "results/results_nn_K" + str(K) + "_patched_param"
     file = open(results, "w")
     print("DONE TRAINING")
     print("Best Validation Loss:", best_val_loss.item())
@@ -306,7 +312,7 @@ for K in K_NUMBER:
     ax.plot(np.arange(0,len(val_loss_history)*val_every,val_every), val_loss_history, label='validation loss')
     ax.legend(loc='best')
     # plt.show(block=True)
-    plot_name = 'lost_history_nn_K' + str(K) + '_patched_param.png'
+    plot_name = 'results/loss_history_nn_K' + str(K) + '_patched_param.png'
     plt.savefig(plot_name)
 
     # Loss on test set
@@ -324,8 +330,8 @@ for K in K_NUMBER:
     row_patch_num = 7
     col_patch_num = 9
     patch_num_scene = row_patch_num * col_patch_num
-    # test_depths_pred_unnorm = test_depths_pred_unnorm.cpu().numpy()
-    # test_gt_depths = test_gt_depths.cpu().numpy()
+    test_depths_pred_unnorm = test_depths_pred_unnorm.cpu().numpy()
+    test_gt_depths = test_gt_depths.cpu().numpy()
     num = np.floor(test_depths_pred_unnorm.shape[0] / patch_num_scene)
     n1 = randint(0, num-1)
     n2 = randint(0, num-1)
@@ -365,7 +371,7 @@ for K in K_NUMBER:
     plt.clim(-500,500)
     plt.colorbar()
     # plt.show(block=True)
-    plot_name = 'depth_plot_nn_one_K' + str(K) + '_patched_param.png'
+    plot_name = 'results/depth_plot_nn_one_K' + str(K) + '_patched_param.png'
     plt.savefig(plot_name)
 
     fig = plt.figure()
@@ -385,18 +391,18 @@ for K in K_NUMBER:
     plt.clim(-500,500)
     plt.colorbar()
     # plt.show(block=True)
-    plot_name = 'depth_plot_nn_two_K' + str(K) + '_patched_param.png'
+    plot_name = 'results/depth_plot_nn_two_K' + str(K) + '_patched_param.png'
     plt.savefig(plot_name)
 
-    #### Calculate final coding functions based on learned parameters
-    ModFs_func = torch.zeros(model.N, model.K, device=device, dtype=dtype, requires_grad=False)
+    #### Calculate current coding functions based on learned parameters
+    ModFs_func = torch.zeros(model.N, 1, device=device, dtype=dtype, requires_grad=False)
     DemodFs_func = torch.zeros(model.N, model.K, device=device, dtype=dtype, requires_grad=False)
-    ModFs = torch.zeros(model.N, model.K, device=device, dtype=dtype, requires_grad=False)
+    ModFs = torch.zeros(model.N, 1, device=device, dtype=dtype, requires_grad=False)
     DemodFs = torch.zeros(model.N, model.K, device=device, dtype=dtype, requires_grad=False)
     p = torch.linspace(0, 2*math.pi, model.N, device=device)
-    for k in range(0, model.K):
-        for order in range(0, model.order):
-            ModFs_func[:, k] += model.alpha_mod[k, order] * torch.cos((p+model.phi_mod[k, order])*(order+1))
+    for order in range(0, model.order):
+        ModFs_func[:, 0] += model.alpha_mod[0, order] * torch.cos((p+model.phi_mod[0, order])*(order+1))
+        for k in range(0, model.K):
             DemodFs_func[:, k] += model.alpha_demod[k, order] * torch.cos((p+model.phi_demod[k, order])*(order+1))
         
     # Normalize ModFs and DemodFs
@@ -405,6 +411,7 @@ for K in K_NUMBER:
     min_DemodFs_func, _ = torch.min(DemodFs_func, dim=0)
     max_DemodFs_func, _ = torch.max(DemodFs_func, dim=0)
     DemodFs = (DemodFs_func - min_DemodFs_func) / (max_DemodFs_func - min_DemodFs_func) # DemodFs can only be 0->1
+    ModFs = ModFs.repeat(1,model.K)
 
     UtilsPlot.PlotCodingScheme(ModFs,DemodFs,device)
 
@@ -412,6 +419,6 @@ for K in K_NUMBER:
     DemodFs_np = DemodFs.cpu().detach().numpy()
     CorrFs = Utils.GetCorrelationFunctions(ModFs,DemodFs,device)
     CorrFs_np = CorrFs.cpu().detach().numpy()
-    name = 'coding_functions_nn_K' + str(K) + '_patched_param.npz'
+    name = 'results/coding_functions_nn_K' + str(K) + '_patched_param.npz'
     np.savez(name, ModFs=ModFs_np, DemodFs=DemodFs_np, CorrFs=CorrFs_np)
     file.close()

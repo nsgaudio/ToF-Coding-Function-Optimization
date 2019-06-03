@@ -36,28 +36,14 @@ class CNN(torch.nn.Module):
         sourceExponent = 9
         ambientExponent = 6
 
-        #### Parametrized Coding (Fourier Series)
-        N = 10000
-        self.N = N
+        #### Coding (Initialize at Hamiltonian)
+        self.N = 10000
         self.K = K
-        order = 20 # The number of sinusoids to sum per function
-        self.order = order
-
-        # Initialize at Hamiltonian
-        temp_alpha_mod = torch.zeros(1, order, device=device, dtype=dtype)
-        temp_alpha_demod = torch.zeros(K, order, device=device, dtype=dtype)
-        temp_phi_mod = torch.zeros(1, order, device=device, dtype=dtype)
-        temp_phi_demod = torch.zeros(K, order, device=device, dtype=dtype)
-        for i in range(self.order):
-            temp_alpha_mod[0,i] = 2*6/((i+1)*math.pi) * np.sin((i+1)*math.pi/6) * torch.ones(1, device=device, dtype=dtype)
-            temp_alpha_demod[:,i] = 2*1/((i+1)*math.pi) * np.sin((i+1)*math.pi/2) * torch.ones(K, device=device, dtype=dtype)
-        temp_phi_mod[0,:] = -1/12*math.pi * torch.ones(order, device=device, dtype=dtype)
-        for i in range(self.K):
-            temp_phi_demod[i,:] = i*2/3*math.pi * torch.ones(order, device=device, dtype=dtype)
-        self.alpha_mod = temp_alpha_mod.clone().detach().requires_grad_(True)
-        self.alpha_demod = temp_alpha_demod.clone().detach().requires_grad_(True)
-        self.phi_mod = temp_phi_mod.clone().detach().requires_grad_(True)
-        self.phi_demod = temp_phi_demod.clone().detach().requires_grad_(True)
+        (ModFs_np,DemodFs_np) = CodingFunctions.GetCosCos(N = self.N, K=self.K)
+        temp = torch.tensor(ModFs_np, device=device, dtype=dtype)
+        self.ModFs = temp[:,:K].clone().detach().requires_grad_(True)
+        temp = torch.tensor(DemodFs_np, device=device, dtype=dtype)
+        self.DemodFs = temp[:,:K].clone().detach().requires_grad_(True)
 
         self.architecture = architecture
         #### Global parameters
@@ -70,7 +56,7 @@ class CNN(torch.nn.Module):
         fMax = speedOfLight/(2*float(dMax)) # Maximum unambiguous repetition frequency (in Hz)
         self.tauMin = 1./fMax
         fSampling = float(dMax)*fMax # Sampling frequency of mod and demod functuion
-        self.dt = self.tauMin/float(N)
+        self.dt = self.tauMin/float(self.N)
         self.pAveSourcePerPixel = np.power(10, sourceExponent) # Source power. Avg number of photons emitted by the light source per second. 
         # self.pAveSourcePerPixel = pAveSource/nPixels # Avg number of photons arriving to each pixel per second. If all light is reflected back.
         freq = fMax # Fundamental frequency of modulation and demodulation functions
@@ -93,37 +79,17 @@ class CNN(torch.nn.Module):
         a Tensor of output data. We can use Modules defined in the constructor as
         well as arbitrary operators on Tensors.
         """
-        
-        #### Calculate current coding functions based on learned parameters
-        ModFs_func = torch.zeros(self.N, 1, device=device, dtype=dtype, requires_grad=False)
-        DemodFs_func = torch.zeros(self.N, self.K, device=device, dtype=dtype, requires_grad=False)
-        ModFs = torch.zeros(self.N, 1, device=device, dtype=dtype, requires_grad=False)
-        DemodFs = torch.zeros(self.N, self.K, device=device, dtype=dtype, requires_grad=False)
-        p = torch.linspace(0, 2*math.pi, self.N, device=device)
-        for order in range(0, self.order):
-            ModFs_func[:, 0] += self.alpha_mod[0, order] * torch.cos((p+self.phi_mod[0, order])*(order+1))
-            for k in range(0, self.K):
-                DemodFs_func[:, k] += self.alpha_demod[k, order] * torch.cos((p+self.phi_demod[k, order])*(order+1))
-            
-        # Normalize ModFs and DemodFs
-        min_ModFs_func, _ = torch.min(ModFs_func, dim=0)
-        ModFs = ModFs_func - min_ModFs_func # ModFs can't be lower than zero (negative light)
-        min_DemodFs_func, _ = torch.min(DemodFs_func, dim=0)
-        max_DemodFs_func, _ = torch.max(DemodFs_func, dim=0)
-        DemodFs = (DemodFs_func - min_DemodFs_func) / (max_DemodFs_func - min_DemodFs_func) # DemodFs can only be 0->1
 
         #################### Simulation
         ## Set area under the curve of outgoing ModF to the totalEnergy
-        ModFs = ModFs.repeat(1,self.K)
-        ModFs_scaled = Utils.ScaleMod(ModFs, device, tau=self.tauMin, pAveSource=self.pAveSourcePerPixel)
+        ModFs_scaled = Utils.ScaleMod(self.ModFs, device=device, tau=self.tauMin, pAveSource=self.pAveSourcePerPixel)
         # Calculate correlation functions (NxK matrix) and normalize it (zero mean, unit variance)
-        CorrFs = Utils.GetCorrelationFunctions(ModFs_scaled,DemodFs,device,dt=self.dt)
+        CorrFs = Utils.GetCorrelationFunctions(ModFs_scaled,self.DemodFs,device=device,dt=self.dt)
         NormCorrFs = (CorrFs.t() - torch.mean(CorrFs,1)) / torch.std(CorrFs,1)
         NormCorrFs = NormCorrFs.t()
         # Compute brightness values
-        BVals = Utils.ComputeBrightnessVals(ModFs=ModFs_scaled, DemodFs=DemodFs, CorrFs=CorrFs, depths=gt_depths, \
-                pAmbient=self.pAveAmbientPerPixel, beta=self.meanBeta, T=self.T, tau=self.tau, dt=self.dt, gamma=self.gamma)
-        
+        BVals = Utils.ComputeBrightnessVals(ModFs=ModFs_scaled, DemodFs=self.DemodFs, CorrFs=CorrFs, depths=gt_depths, \
+                pAmbient=self.pAveAmbientPerPixel, beta=self.meanBeta, T=self.T, tau=self.tau, dt=self.dt, gamma=self.gamma)    
         #### Add noise
         # Calculate variance
         noiseVar = BVals*self.gamma + math.pow(self.readNoise*self.gamma, 2) 
@@ -245,10 +211,8 @@ for K in K_NUMBER:
     # nn.Linear modules which are members of the model.
     criterion = torch.nn.MSELoss(reduction='mean')
     parameters = list(model.parameters())
-    parameters.append(model.alpha_mod)
-    parameters.append(model.alpha_demod)
-    parameters.append(model.phi_mod)
-    parameters.append(model.phi_demod)
+    parameters.append(model.ModFs)
+    parameters.append(model.DemodFs)
     optimizer = optim.Adam(parameters, lr = 3e-4)
 
     with torch.autograd.detect_anomaly():
@@ -288,19 +252,18 @@ for K in K_NUMBER:
                     val_loss_history.append(val_loss.item())
                     val_depths_pred_unnorm = val_depths_pred*train_gt_depths_std+train_gt_depths_mean
                     val_MSE = criterion(val_depths_pred_unnorm, val_gt_depths)
-                print("K:", K)
-                print("Iteration: %d, Train Loss: %f, Val Loss: %f, Train MSE: %f, Val MSE: %f" %(iteration, train_loss.item(), val_loss.item(), train_MSE, val_MSE))
+                print("Iteration: %d, K: %d, Train Loss: %f, Val Loss: %f, Train MSE: %f, Val MSE: %f" %(iteration, K, train_loss.item(), val_loss.item(), train_MSE, val_MSE))
                 if iteration == 1 or val_loss < best_val_loss:
                     best_val_loss = val_loss
                     best_iteration = iteration
                     best_model = model
-                    model_name = 'results/model_nn_K' + str(K) + '_whole_param'
+                    model_name = 'results/model_nn_K' + str(K) + '_whole_point'
                     torch.save(model, model_name)
                     increased = 0
                 else:
                     increased = increased + 1
 
-    results = "results/results_nn_K" + str(K) + "_whole_param"
+    results = "results/results_nn_K" + str(K) + "_whole_point"
     file = open(results, "w")
     print("DONE TRAINING")
     print("Best Validation Loss:", best_val_loss.item())
@@ -314,7 +277,7 @@ for K in K_NUMBER:
     ax.plot(np.arange(0,len(val_loss_history)*val_every,val_every), val_loss_history, label='validation loss')
     ax.legend(loc='best')
     # plt.show(block=True)
-    plot_name = 'results/loss_history_nn_K' + str(K) + '_whole_param.png'
+    plot_name = 'results/loss_history_nn_K' + str(K) + '_whole_point.png'
     plt.savefig(plot_name)
 
     # Loss on test set
@@ -358,7 +321,7 @@ for K in K_NUMBER:
     plt.clim(-500,500)
     plt.colorbar()
     # plt.show(block=True)
-    plot_name = 'results/depth_plot_nn_one_K' + str(K) + '_whole_param.png'
+    plot_name = 'results/depth_plot_nn_one_K' + str(K) + '_whole_point.png'
     plt.savefig(plot_name)
 
     fig = plt.figure()
@@ -378,34 +341,18 @@ for K in K_NUMBER:
     plt.clim(-500,500)
     plt.colorbar()
     # plt.show(block=True)
-    plot_name = 'results/depth_plot_nn_two_K' + str(K) + '_whole_param.png'
+    plot_name = 'results/depth_plot_nn_two_K' + str(K) + '_whole_point.png'
     plt.savefig(plot_name)
 
-    #### Calculate current coding functions based on learned parameters
-    ModFs_func = torch.zeros(model.N, 1, device=device, dtype=dtype, requires_grad=False)
-    DemodFs_func = torch.zeros(model.N, model.K, device=device, dtype=dtype, requires_grad=False)
-    ModFs = torch.zeros(model.N, 1, device=device, dtype=dtype, requires_grad=False)
-    DemodFs = torch.zeros(model.N, model.K, device=device, dtype=dtype, requires_grad=False)
-    p = torch.linspace(0, 2*math.pi, model.N, device=device)
-    for order in range(0, model.order):
-        ModFs_func[:, 0] += model.alpha_mod[0, order] * torch.cos((p+model.phi_mod[0, order])*(order+1))
-        for k in range(0, model.K):
-            DemodFs_func[:, k] += model.alpha_demod[k, order] * torch.cos((p+model.phi_demod[k, order])*(order+1))
-        
-    # Normalize ModFs and DemodFs
-    min_ModFs_func, _ = torch.min(ModFs_func, dim=0)
-    ModFs = ModFs_func - min_ModFs_func # ModFs can't be lower than zero (negative light)
-    min_DemodFs_func, _ = torch.min(DemodFs_func, dim=0)
-    max_DemodFs_func, _ = torch.max(DemodFs_func, dim=0)
-    DemodFs = (DemodFs_func - min_DemodFs_func) / (max_DemodFs_func - min_DemodFs_func) # DemodFs can only be 0->1
-    ModFs = ModFs.repeat(1,model.K)
+    # Save coding functions
+    ModFs_scaled = Utils.ScaleMod(model.ModFs, device=device, tau=model.tauMin, pAveSource=model.pAveSourcePerPixel)
 
-    UtilsPlot.PlotCodingScheme(ModFs,DemodFs,device)
-
-    ModFs_np = ModFs.cpu().detach().numpy()
-    DemodFs_np = DemodFs.cpu().detach().numpy()
-    CorrFs = Utils.GetCorrelationFunctions(ModFs,DemodFs,device)
+    UtilsPlot.PlotCodingScheme(model.ModFs,model.DemodFs,device)
+    ModFs_np = model.ModFs.cpu().detach().numpy()
+    DemodFs_np = model.DemodFs.cpu().detach().numpy()
+    CorrFs = Utils.GetCorrelationFunctions(model.ModFs,model.DemodFs,device=device)
     CorrFs_np = CorrFs.cpu().detach().numpy()
-    name = 'results/coding_functions_nn_K' + str(K) + '_whole_param.npz'
+    name = 'results/coding_functions_nn_K' + str(K) + '_whole_point.npz'
     np.savez(name, ModFs=ModFs_np, DemodFs=DemodFs_np, CorrFs=CorrFs_np)
     file.close()
+

@@ -236,3 +236,20 @@ def GetMultiFreqCosK5(N=1000, highFreqFactor=7.):
 
 	#### Smooth the High Freq terms
 	return (ModFs,DemodFs)
+
+def GetCodingFromFile(fileName):
+	"""GetCodingFromFile: Get modulation and demodulation functions from defined file
+	
+	Args:
+		fileName: Name of file (has to contain ModFs and DemodFs)
+
+	Returns:
+		np.array: modFs 
+		np.array: demodFs 
+	"""
+	#### Load File
+	coding_file = np.load(fileName)
+	modFs = coding_file['ModFs']
+	demodFs = coding_file['DemodFs']
+	return (modFs, demodFs)
+

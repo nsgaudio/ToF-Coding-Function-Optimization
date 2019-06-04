@@ -147,15 +147,15 @@ class CNN(torch.nn.Module):
         if architecture == 'sequential':
             if init == True:
                 self.layer_down1 = nn.Sequential(
-                    nn.Conv2d(self.K, 32, kernel_size=3, stride=2, padding=1),
+                    nn.Conv2d(self.K, 32, kernel_size=4, stride=2, padding=1),
                     nn.BatchNorm2d(32),
                     nn.ReLU())
                 self.layer_down2 = nn.Sequential(
-                    nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1),
+                    nn.Conv2d(32, 64, kernel_size=4, stride=2, padding=1),
                     nn.BatchNorm2d(64),
                     nn.ReLU())
                 self.layer_down3 = nn.Sequential(
-                    nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1),
+                    nn.Conv2d(64, 128, kernel_size=4, stride=2, padding=1),
                     nn.BatchNorm2d(128),
                     nn.ReLU())
 

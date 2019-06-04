@@ -1,0 +1,3 @@
+Best Validation Loss:0.0032242878805845976
+Best Iteration:63900
+Test Loss:0.01211465336382389, Test MSE:tensor(23718.3965, device='cuda:0')

@@ -1,6 +1,6 @@
 # ToF-Coding-Function-Optimization
 
-One Paragraph of project description goes here
+In this work we have developed two pipelines to optimize the modulation and demodulation functions for CW-ToF imaging in order to improve the depth precision of CW-ToF systems.
 
 ## Folder Structure
 
